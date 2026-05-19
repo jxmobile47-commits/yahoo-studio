@@ -5,6 +5,7 @@ import '../styles/analysis-embedded.css';
 import '../styles/chord-grid.css';
 import { Providers } from './providers';
 import ClientErrorBoundary from '@/components/common/ClientErrorBoundary';
+import KeyboardShortcutsModal from '@/components/common/KeyboardShortcutsModal';
 import FirebaseInitializer from '@/components/layout/FirebaseInitializer';
 import ServiceWorkerRegistration from '@/components/layout/ServiceWorkerRegistration';
 import Footer from '@/components/common/Footer';
@@ -234,6 +235,7 @@ export default function RootLayout({
               {children}
             </main>
             <Footer />
+            <KeyboardShortcutsModal />
           </ClientErrorBoundary>
         </Providers>
       </body>

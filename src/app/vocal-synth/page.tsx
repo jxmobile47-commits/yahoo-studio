@@ -486,7 +486,34 @@ export default function VocalSynthPage() {
       const arrayBuffer = await file.arrayBuffer();
       const audioBuffer = await ctx.decodeAudioData(arrayBuffer);
 
-      const detectedNotes = await detectPitchFromAudio(audioBuffer, bpm);
+      // Run pitch detection in Web Worker (non-blocking UI)
+      const detectedNotes = await new Promise<SynthNote[]>((resolve, reject) => {
+        try {
+          const worker = new Worker('/workers/pitch-detection.worker.js');
+          const channelData = audioBuffer.getChannelData(0);
+          // Transfer underlying buffer for zero-copy performance
+          const transferable = new Float32Array(channelData).buffer;
+          worker.onmessage = (ev) => {
+            if (ev.data.type === 'done') {
+              worker.terminate();
+              resolve(ev.data.notes as SynthNote[]);
+            }
+          };
+          worker.onerror = (err) => {
+            worker.terminate();
+            reject(new Error(err.message || 'Worker error'));
+          };
+          worker.postMessage({
+            channelData: new Float32Array(transferable),
+            sampleRate: audioBuffer.sampleRate,
+            bpm,
+            maxBeats: MAX_TOTAL_BEATS,
+          }, [transferable]);
+        } catch (workerErr) {
+          // Fallback to main-thread implementation
+          detectPitchFromAudio(audioBuffer, bpm).then(resolve).catch(reject);
+        }
+      });
 
       if (detectedNotes.length === 0) {
         setUploadError('No vocal notes detected. Try a clearer vocal recording with less background noise.');
@@ -494,9 +521,8 @@ export default function VocalSynthPage() {
         setNotes(detectedNotes);
         setSelectedNote(null);
         setPlayhead(0);
-        // Auto-extend grid to fit detected notes
         const lastBeat = Math.max(...detectedNotes.map(n => n.start + n.duration));
-        const requiredBeats = Math.ceil((lastBeat + 4) / 4) * 4; // round up to nearest 4 beats
+        const requiredBeats = Math.ceil((lastBeat + 4) / 4) * 4;
         setTotalBeats(Math.min(MAX_TOTAL_BEATS, Math.max(DEFAULT_TOTAL_BEATS, requiredBeats)));
       }
     } catch (err) {

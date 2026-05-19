@@ -4,6 +4,64 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ============================================================
+   Animated Blue Border Light - runs around viewport edge
+   ============================================================ */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 9999;
+  border-radius: 0;
+  padding: 2px;
+  background: conic-gradient(
+    from var(--border-angle, 0deg),
+    transparent 0%,
+    transparent 70%,
+    #00d4ff 80%,
+    #3b82f6 90%,
+    #00d4ff 95%,
+    transparent 100%
+  );
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+          mask-composite: exclude;
+  animation: border-spin 4s linear infinite;
+  filter: drop-shadow(0 0 6px rgba(0, 212, 255, 0.6))
+          drop-shadow(0 0 12px rgba(59, 130, 246, 0.4));
+}
+
+@property --border-angle {
+  syntax: '<angle>';
+  inherits: false;
+  initial-value: 0deg;
+}
+
+@keyframes border-spin {
+  to {
+    --border-angle: 360deg;
+  }
+}
+
+/* Fallback for browsers without @property support */
+@supports not (background: conic-gradient(from 0deg, red, blue)) {
+  body::before {
+    background: linear-gradient(90deg, transparent, #00d4ff, #3b82f6, transparent);
+    background-size: 200% 100%;
+    animation: border-slide 3s linear infinite;
+  }
+  @keyframes border-slide {
+    from { background-position: -100% 0; }
+    to { background-position: 100% 0; }
+  }
+}
+
 /* Radix Accordion Styles */
 [data-radix-accordion-content] {
   overflow: hidden;

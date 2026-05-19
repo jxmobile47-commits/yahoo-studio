@@ -326,8 +326,21 @@ const DEMO_NOTES: SynthNote[] = [
 // Main Component
 // ============================================================
 
+const VOCAL_SYNTH_AUTOSAVE_KEY = 'yahooStudio_vocalsynth_autosave';
+
+function loadVocalSynthAutoSave(): { notes: SynthNote[]; bpm: number; totalBeats: number } | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = localStorage.getItem(VOCAL_SYNTH_AUTOSAVE_KEY);
+    if (!raw) return null;
+    const data = JSON.parse(raw);
+    if (!data.notes || !Array.isArray(data.notes)) return null;
+    return data;
+  } catch { return null; }
+}
+
 export default function VocalSynthPage() {
-  const [notes, setNotes] = useState<SynthNote[]>(DEMO_NOTES);
+  const [notes, setNotes] = useState<SynthNote[]>(() => loadVocalSynthAutoSave()?.notes ?? DEMO_NOTES);
   const [selectedNote, setSelectedNote] = useState<string | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [playhead, setPlayhead] = useState(0);
@@ -585,6 +598,17 @@ export default function VocalSynthPage() {
 
   const gridWidth = totalBeats * CELL_WIDTH;
   const gridHeight = PITCH_RANGE * CELL_HEIGHT;
+
+  // Auto-save notes to localStorage (debounced 500ms)
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const t = setTimeout(() => {
+      try {
+        localStorage.setItem(VOCAL_SYNTH_AUTOSAVE_KEY, JSON.stringify({ notes, bpm, totalBeats }));
+      } catch { /* quota exceeded */ }
+    }, 500);
+    return () => clearTimeout(t);
+  }, [notes, bpm, totalBeats]);
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950 transition-colors">

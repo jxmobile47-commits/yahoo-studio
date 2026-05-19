@@ -344,10 +344,26 @@ class ADTLibInspiredDetector implements OnsetDetector {
 // Main Component
 // ============================================================
 
+const AUTOSAVE_KEY = 'yahooStudio_beatmaker_autosave';
+
+function loadAutoSave(): { channels: DrumChannel[]; bpm: number; swing: number; patternName: string } | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = localStorage.getItem(AUTOSAVE_KEY);
+    if (!raw) return null;
+    const data = JSON.parse(raw);
+    if (!data.channels || !Array.isArray(data.channels)) return null;
+    return data;
+  } catch { return null; }
+}
+
 export default function BeatMakerPage() {
-  const [channels, setChannels] = useState<DrumChannel[]>(JSON.parse(JSON.stringify(INITIAL_CHANNELS)));
-  const [bpm, setBpm] = useState(DEFAULT_BPM);
-  const [swing, setSwing] = useState(0);
+  const [channels, setChannels] = useState<DrumChannel[]>(() => {
+    const saved = loadAutoSave();
+    return saved?.channels ?? JSON.parse(JSON.stringify(INITIAL_CHANNELS));
+  });
+  const [bpm, setBpm] = useState(() => loadAutoSave()?.bpm ?? DEFAULT_BPM);
+  const [swing, setSwing] = useState(() => loadAutoSave()?.swing ?? 0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentStep, setCurrentStep] = useState(-1);
   const [patternName, setPatternName] = useState('Pattern 1');
@@ -588,6 +604,17 @@ export default function BeatMakerPage() {
       if (timerRef.current) clearInterval(timerRef.current);
     };
   }, []);
+
+  // Auto-save pattern to localStorage (debounced 500ms)
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const t = setTimeout(() => {
+      try {
+        localStorage.setItem(AUTOSAVE_KEY, JSON.stringify({ channels, bpm, swing, patternName }));
+      } catch { /* quota exceeded — ignore */ }
+    }, 500);
+    return () => clearTimeout(t);
+  }, [channels, bpm, swing, patternName]);
 
 
   return (

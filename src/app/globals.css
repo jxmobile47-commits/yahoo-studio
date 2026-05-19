@@ -5,23 +5,37 @@
 @tailwind utilities;
 
 /* ============================================================
-   Animated Blue Border Light - runs around viewport edge
+   Animated Neon Border - dual running lights with intense glow
    ============================================================ */
+@property --border-angle {
+  syntax: '<angle>';
+  inherits: false;
+  initial-value: 0deg;
+}
+
+@property --border-angle-2 {
+  syntax: '<angle>';
+  inherits: false;
+  initial-value: 180deg;
+}
+
+/* Layer 1: Primary cyan/blue light */
 body::before {
   content: '';
   position: fixed;
   inset: 0;
   pointer-events: none;
   z-index: 9999;
-  border-radius: 0;
-  padding: 2px;
+  padding: 3px;
   background: conic-gradient(
     from var(--border-angle, 0deg),
     transparent 0%,
-    transparent 70%,
-    #00d4ff 80%,
-    #3b82f6 90%,
-    #00d4ff 95%,
+    transparent 65%,
+    #00ffff 75%,
+    #00d4ff 82%,
+    #3b82f6 88%,
+    #8b5cf6 92%,
+    #00ffff 96%,
     transparent 100%
   );
   -webkit-mask:
@@ -32,33 +46,93 @@ body::before {
     linear-gradient(#000 0 0);
   -webkit-mask-composite: xor;
           mask-composite: exclude;
-  animation: border-spin 4s linear infinite;
-  filter: drop-shadow(0 0 6px rgba(0, 212, 255, 0.6))
-          drop-shadow(0 0 12px rgba(59, 130, 246, 0.4));
+  animation: border-spin 3s linear infinite, border-pulse 2s ease-in-out infinite;
+  filter:
+    drop-shadow(0 0 4px #00ffff)
+    drop-shadow(0 0 10px #00d4ff)
+    drop-shadow(0 0 20px rgba(59, 130, 246, 0.6))
+    drop-shadow(0 0 35px rgba(139, 92, 246, 0.4));
+  will-change: --border-angle, opacity;
 }
 
-@property --border-angle {
-  syntax: '<angle>';
-  inherits: false;
-  initial-value: 0deg;
+/* Layer 2: Secondary opposing light (purple/pink) */
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 9998;
+  padding: 2px;
+  background: conic-gradient(
+    from var(--border-angle-2, 180deg),
+    transparent 0%,
+    transparent 75%,
+    #ec4899 85%,
+    #8b5cf6 92%,
+    #d946ef 96%,
+    transparent 100%
+  );
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+          mask-composite: exclude;
+  animation: border-spin-2 4.5s linear infinite;
+  filter:
+    drop-shadow(0 0 3px #ec4899)
+    drop-shadow(0 0 8px #8b5cf6)
+    drop-shadow(0 0 18px rgba(217, 70, 239, 0.5));
+  will-change: --border-angle-2;
+  opacity: 0.85;
 }
 
 @keyframes border-spin {
-  to {
-    --border-angle: 360deg;
+  to { --border-angle: 360deg; }
+}
+
+@keyframes border-spin-2 {
+  to { --border-angle-2: 540deg; }
+}
+
+@keyframes border-pulse {
+  0%, 100% {
+    filter:
+      drop-shadow(0 0 4px #00ffff)
+      drop-shadow(0 0 10px #00d4ff)
+      drop-shadow(0 0 20px rgba(59, 130, 246, 0.6))
+      drop-shadow(0 0 35px rgba(139, 92, 246, 0.4));
+  }
+  50% {
+    filter:
+      drop-shadow(0 0 6px #00ffff)
+      drop-shadow(0 0 16px #00d4ff)
+      drop-shadow(0 0 30px rgba(59, 130, 246, 0.8))
+      drop-shadow(0 0 50px rgba(139, 92, 246, 0.6));
   }
 }
 
 /* Fallback for browsers without @property support */
 @supports not (background: conic-gradient(from 0deg, red, blue)) {
   body::before {
-    background: linear-gradient(90deg, transparent, #00d4ff, #3b82f6, transparent);
+    background: linear-gradient(90deg, transparent, #00ffff, #3b82f6, #8b5cf6, transparent);
     background-size: 200% 100%;
     animation: border-slide 3s linear infinite;
   }
+  body::after { display: none; }
   @keyframes border-slide {
     from { background-position: -100% 0; }
     to { background-position: 100% 0; }
+  }
+}
+
+/* Disable animation if user prefers reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  body::before,
+  body::after {
+    animation: none;
   }
 }
 

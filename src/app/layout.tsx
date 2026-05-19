@@ -6,6 +6,7 @@ import '../styles/chord-grid.css';
 import { Providers } from './providers';
 import ClientErrorBoundary from '@/components/common/ClientErrorBoundary';
 import KeyboardShortcutsModal from '@/components/common/KeyboardShortcutsModal';
+import BackendWarmup from '@/components/common/BackendWarmup';
 import FirebaseInitializer from '@/components/layout/FirebaseInitializer';
 import ServiceWorkerRegistration from '@/components/layout/ServiceWorkerRegistration';
 import Footer from '@/components/common/Footer';
@@ -228,6 +229,7 @@ export default function RootLayout({
             <DesktopPerformanceOptimizer />
             <ServiceWorkerRegistration />
             <FirebaseInitializer />
+            <BackendWarmup />
             {process.env.NODE_ENV === 'development' ? <PerformanceMonitor /> : null}
             <CorsErrorSuppression />
             {process.env.NODE_ENV === 'development' ? <DevIndicatorHider /> : null}

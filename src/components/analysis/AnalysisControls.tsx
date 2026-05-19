@@ -1,7 +1,8 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Button, Chip, Card, CardBody, CardHeader, Divider } from '@heroui/react';
+import { FiRefreshCw, FiClock } from 'react-icons/fi';
 import { BeatDetectorType, ChordDetectorType } from '@/hooks/chord-analysis/useModelState';
 import HeroUIBeatModelSelector from '@/components/analysis/HeroUIBeatModelSelector';
 import HeroUIChordModelSelector from '@/components/analysis/HeroUIChordModelSelector';
@@ -65,11 +66,22 @@ export const AnalysisControls: React.FC<AnalysisControlsProps> = ({
   // PERFORMANCE FIX: Always show model selection UI, regardless of extraction state
   // This allows users to select models immediately, even during cold starts
   // Only hide when analysis is actually complete (isAnalyzed is true)
+  // Track elapsed time during preparing/analyzing
+  const [elapsedSec, setElapsedSec] = useState(0);
+  const isWaiting = !isExtracted || isAnalyzing;
+  useEffect(() => {
+    if (!isWaiting) { setElapsedSec(0); return; }
+    const t = setInterval(() => setElapsedSec(e => e + 1), 1000);
+    return () => clearInterval(t);
+  }, [isWaiting]);
+
   if (hidden || isAnalyzed || (stage === 'complete' && isAnalyzed)) {
     return null;
   }
 
   const canOpenCachedResults = cacheCheckCompleted && cacheAvailable;
+  const showRetryHint = elapsedSec > 30 && !isExtracted;
+  const showColdStartHint = elapsedSec > 15 && elapsedSec <= 60 && !isExtracted;
 
   const actionLabel = isAnalyzing
     ? 'Analyzing...'
@@ -173,11 +185,40 @@ export const AnalysisControls: React.FC<AnalysisControlsProps> = ({
         {/* Model selectors removed — Beat-Transformer + BTC-SL (ChordMini Transformer) forced as default */}
 
         <div className={`flex flex-col gap-4 rounded-xl border p-4 md:flex-row md:items-center md:justify-between ${statusStyles}`}>
-          <div className="flex items-start gap-3">
-            <span className={`mt-1 h-2.5 w-2.5 flex-shrink-0 rounded-full ${statusDotStyles}`} />
-            <div>
-              <p className="text-sm font-semibold text-foreground">{statusTitle}</p>
+          <div className="flex items-start gap-3 flex-1">
+            <span className={`mt-1 h-2.5 w-2.5 flex-shrink-0 rounded-full ${statusDotStyles} ${isWaiting ? 'animate-pulse' : ''}`} />
+            <div className="flex-1">
+              <div className="flex items-center gap-2 flex-wrap">
+                <p className="text-sm font-semibold text-foreground">{statusTitle}</p>
+                {isWaiting && elapsedSec > 0 && (
+                  <span className="inline-flex items-center gap-1 text-xs text-default-500 dark:text-default-400">
+                    <FiClock className="w-3 h-3" />
+                    {elapsedSec}s
+                  </span>
+                )}
+              </div>
               <p className="text-sm text-default-600 dark:text-default-300">{statusDescription}</p>
+              {showColdStartHint && (
+                <p className="text-xs text-warning-600 dark:text-warning-400 mt-1.5 italic">
+                  ⏳ Backend may be waking up (cold start). This usually takes 30-60 seconds the first time.
+                </p>
+              )}
+              {showRetryHint && (
+                <div className="flex items-center gap-2 mt-2 flex-wrap">
+                  <p className="text-xs text-danger-600 dark:text-danger-400">
+                    ⚠️ Taking longer than expected. Try refreshing the page if it stays stuck.
+                  </p>
+                  <Button
+                    size="sm"
+                    variant="flat"
+                    color="danger"
+                    startContent={<FiRefreshCw className="w-3 h-3" />}
+                    onPress={() => window.location.reload()}
+                  >
+                    Retry
+                  </Button>
+                </div>
+              )}
             </div>
           </div>
 

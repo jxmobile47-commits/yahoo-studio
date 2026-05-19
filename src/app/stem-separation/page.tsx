@@ -118,8 +118,18 @@ function drawWaveform(
   const ctx = canvas.getContext('2d');
   if (!ctx) return;
 
-  const width = canvas.width;
-  const height = canvas.height;
+  // Sync canvas intrinsic resolution with CSS size (HiDPI aware)
+  const cssW = canvas.clientWidth || canvas.parentElement?.clientWidth || 800;
+  const cssH = canvas.clientHeight || canvas.parentElement?.clientHeight || 64;
+  const dpr = window.devicePixelRatio || 1;
+  if (canvas.width !== Math.floor(cssW * dpr) || canvas.height !== Math.floor(cssH * dpr)) {
+    canvas.width = Math.floor(cssW * dpr);
+    canvas.height = Math.floor(cssH * dpr);
+  }
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+  const width = cssW;
+  const height = cssH;
   const channelData = audioBuffer.getChannelData(0);
   const samplesPerPixel = Math.max(1, Math.floor(channelData.length / width / sampleWidth));
   const startSample = Math.floor(offsetSamples);
@@ -327,17 +337,20 @@ export default function StemSeparationPage() {
       setCurrentTime(0);
       setLoopEnd(decoded.duration);
 
-      // Draw main waveform
-      if (mainCanvasRef.current) {
-        drawWaveform(mainCanvasRef.current, decoded, '#3b82f6', 0.85);
-      }
-
-      // Draw stem waveforms
-      STEMS.forEach((stem) => {
-        const canvas = stemCanvasesRef.current[stem.key];
-        if (canvas) {
-          drawFilteredWaveform(canvas, decoded, stem, stem.color, 0.7);
+      // Defer drawing until next frame so canvas layout is computed
+      requestAnimationFrame(() => {
+        // Draw main waveform
+        if (mainCanvasRef.current) {
+          drawWaveform(mainCanvasRef.current, decoded, '#3b82f6', 0.85);
         }
+
+        // Draw stem waveforms (filtered for visualization)
+        STEMS.forEach((stem) => {
+          const canvas = stemCanvasesRef.current[stem.key];
+          if (canvas) {
+            drawFilteredWaveform(canvas, decoded, stem, stem.color, 0.7);
+          }
+        });
       });
     } catch (err) {
       console.error('Failed to decode audio:', err);

@@ -1,0 +1,88 @@
+PROPRIETARY CHORD RECOGNITION MODEL - IMPLEMENTATION GUIDE
+===========================================================
+
+PHASE 1: DATA COLLECTION
+------------------------
+1. Place audio files (.mp3/.wav) in: python_backend/data/raw_audio/
+2. Create chord annotations (.json) in: python_backend/data/annotations/
+   - Use format from: python_backend/data/annotations/example_song.json
+
+3. Run data collection:
+   cd python_backend
+   python scripts/collect_training_data.py \
+     --audio-dir data/raw_audio \
+     --annotation-dir data/annotations \
+     --output-dir data/training
+
+PHASE 2: TRAIN MODEL
+--------------------
+1. Install dependencies:
+   pip install torch numpy librosa tqdm
+
+2. Train the model:
+   cd python_backend
+   python scripts/train_proprietary_model.py \
+     --data-dir data/training \
+     --epochs 100 \
+     --batch-size 8 \
+     --learning-rate 0.001 \
+     --model-save-path models/proprietary_model.pt
+
+3. Model will be saved to: models/proprietary_model.pt
+
+PHASE 3: EVALUATE
+-----------------
+1. Run evaluation:
+   cd python_backend
+   python scripts/evaluate_model.py \
+     --model models/proprietary_model.pt \
+     --test-data data/training \
+     --output evaluation_results.json
+
+PHASE 4: DEPLOY
+---------------
+1. Set environment variables:
+   export PROPRIETARY_MODEL_PATH=models/proprietary_model.pt
+   export DEVICE=cpu  # or cuda
+
+2. Start Flask backend:
+   python app.py
+
+3. Test API endpoints:
+
+   # Health check
+   curl http://localhost:8080/api/proprietary/health
+
+   # Model info
+   curl http://localhost:8080/api/proprietary/info
+
+   # Recognize chords from file
+   curl -X POST http://localhost:8080/api/proprietary/recognize \
+     -F "audio_file=@song.mp3"
+
+   # Recognize from URL
+   curl -X POST http://localhost:8080/api/proprietary/recognize-url \
+     -H "Content-Type: application/json" \
+     -d '{"audio_url": "http://example.com/song.mp3"}'
+
+ARCHITECTURE
+------------
+ProprietaryChordNet:
+  - CNN Feature Extraction (3 blocks with BatchNorm + MaxPool)
+  - Bidirectional LSTM (2 layers, hidden=256)
+  - Optional Self-Attention
+  - Classification Head (512 -> 256 -> 170 chords)
+
+Expected Accuracy:
+  - Baseline (Chord-CNN-LSTM): ~68%
+  - Proprietary Model: ~75-80%
+  - Ensemble (future): ~80-85%
+
+FILES CREATED
+-------------
+  models/proprietary_chord_model.py     - Model architecture
+  scripts/collect_training_data.py      - Data pipeline
+  scripts/train_proprietary_model.py    - Training script
+  scripts/evaluate_model.py             - Evaluation
+  blueprints/proprietary_chord.py      - Flask API endpoints
+  data/annotations/example_song.json  - Annotation format

@@ -1,0 +1,253 @@
+DATA COLLECTION STRATEGY - Beat Chordify
+========================================
+
+CURRENT SITUATION:
+  Chordify has: >10 million annotated songs
+  Yahoo Studio has: 0 annotated songs
+  Gap: 10,000,000 vs 0
+
+TARGET: 50,000-100,000 annotated songs (minimum to compete)
+
+================================================================================
+PHASE 1: AUTOMATED COLLECTION (Weeks 1-4) - Target: 20,000 samples
+================================================================================
+
+SOURCE 1: Web Scraping (5,000 samples)
+---------------------------------------
+Target: Ultimate Guitar, Chordie, E-Chords
+Method: Automated scraping with rate limiting
+Pros: Real user chord annotations
+Cons: Timing is approximate, needs audio matching
+
+Run:
+  cd python_backend/scripts/data_collection
+  python scrape_chord_websites.py --max-songs 5000 --output data/scraped_chords
+
+Then match with audio:
+  - Download audio from Spotify/Apple Music APIs (if licensed)
+  - Or use YouTube audio downloader
+  - Or skip audio, use synthetic matching
+
+SOURCE 2: YouTube + Chord Matching (5,000 samples)
+---------------------------------------------------
+Target: Popular songs with known chord progressions
+Method: Download audio, match with scraped/known chords
+
+Run:
+  python youtube_collector.py \
+    --playlist "PL..." \
+    --chords-file chords.json \
+    --output data/training
+
+Playlists to target:
+  - "Top 1000 Songs of All Time"
+  - "Greatest Guitar Songs"
+  - "Billboard Hot 100 (by year)"
+
+SOURCE 3: Public Datasets (10,000 samples)
+------------------------------------------
+Available datasets:
+  1. McGill Billboard Dataset (~700 songs, high quality)
+     https://mcgillbillboard.s3.amazonaws.com/
+     Format: .lab files with precise timestamps
+
+  2. Isophonics Dataset (Beatles, Queen, etc.)
+     http://isophonics.net/datasets
+     ~300 songs, expert annotations
+
+  3. CASD - Chord and Scale Dataset
+     ~2,500 songs
+
+  4. Rock Corpus
+     ~200 songs, detailed annotations
+
+  5. Lakh MIDI Dataset (~100,000 MIDI files)
+     http://colinraffel.com/projects/lmd/
+     Can synthesize to audio
+
+  6. Wikifonia (MusicXML lead sheets)
+     Can synthesize MIDI
+
+Run:
+  python public_datasets.py --output data/training
+
+================================================================================
+PHASE 2: SYNTHETIC DATA (Weeks 2-3) - Target: 30,000 samples
+================================================================================
+
+WHY SYNTHETIC?
+  - Unlimited quantity
+  - Perfect annotations (ground truth)
+  - Full control over chords/keys/tempo
+  - Augment real data
+
+HOW:
+  1. Generate chord progressions from templates
+     - Pop: I-V-vi-IV, I-vi-IV-V
+     - Jazz: ii-V-I, circle of fifths
+     - Blues: I-IV-V
+     - Rock: power chord progressions
+
+  2. Synthesize to audio using MIDI + SoundFont
+     - Realistic piano/guitar sounds
+     - Add bass, drums for realism
+
+  3. Apply audio augmentation
+     - Tempo variation (80-160 BPM)
+     - Pitch shift (all 12 keys)
+     - Add reverb/background noise
+     - Volume variation
+     - Clipping simulation
+
+Run:
+  python synthetic_generator.py \
+    --output data/synthetic \
+    --n-samples 30000 \
+    --soundfont /path/to/piano.sf2
+
+================================================================================
+PHASE 3: USER FEEDBACK LOOP (Ongoing) - Target: +10,000/month
+================================================================================
+
+CROWDSOURCING STRATEGY:
+  1. Launch "Chord Challenge" feature
+     - User hears audio, guesses chord
+     - Earn points for correct answers
+     - Leaderboard for top contributors
+
+  2. "Correct This Chord" button
+     - User clicks wrong chord in output
+     - Submits correction
+     - Gets instant feedback
+
+  3. Verification system
+     - Multiple users must agree
+     - 3+ agreements = verified
+     - Weighted by user reputation
+
+  4. Active Learning prioritization
+     - Model identifies uncertain predictions
+     - Shows these to users first
+     - Maximizes value of each correction
+
+IMPLEMENTATION:
+  - SQLite database for corrections
+  - REST API for submission/retrieval
+  - React component in frontend
+  - Gamification (badges, streaks, levels)
+
+Database: user_feedback_system.py
+API: feedback_bp (Flask blueprint)
+
+================================================================================
+PHASE 4: DATA QUALITY & FILTERING
+================================================================================
+
+QUALITY CONTROL:
+  1. Low confidence filter
+     - Remove samples where model confidence < 0.5
+     - Send to user for verification
+
+  2. Duration filter
+     - Minimum 30 seconds
+     - Maximum 10 minutes
+
+  3. Chord diversity filter
+     - Ensure all 170 classes represented
+     - Oversample rare chords
+
+  4. Duplicate detection
+     - Audio fingerprinting (chromaprint)
+     - Remove duplicates
+
+  5. Cross-validation split
+     - Artist-level split (prevent leakage)
+     - Genre-stratified split
+     - 80% train / 10% val / 10% test
+
+================================================================================
+EXPECTED RESULTS AFTER 2 MONTHS
+================================================================================
+
+Source           | Count   | Quality | Value
+-----------------|---------|---------|--------
+Web Scraped      | 5,000   | Medium  | Good timing practice
+YouTube          | 5,000   | High    | Real audio + real chords
+Public Datasets  | 10,000  | High    | Expert annotations
+Synthetic        | 30,000  | Perfect | Ground truth
+User Feedback    | 5,000   | High    | Production-tuned
+-----------------|---------|---------|--------
+TOTAL            | 55,000  |         |
+
+WITH 55K SAMPLES:
+  - Expected accuracy: 78-83%
+  - Chordify benchmark: ~80-85%
+  - Status: COMPETITIVE
+
+================================================================================
+COMMANDS TO RUN EVERYTHING
+================================================================================
+
+# Step 1: Install dependencies
+pip install yt-dlp beautifulsoup4 requests numpy librosa soundfile pretty_midi pyfluidsynth
+
+# Step 2: Run master pipeline
+python master_collector.py \
+  --target-samples 50000 \
+  --youtube-playlist "PLYourPlaylistID" \
+  --output data/training
+
+# Step 3: Verify data
+python -c "
+from pathlib import Path
+samples = list(Path('data/training/unified').glob('sample_*'))
+print(f'Total samples: {len(samples)}')
+"
+
+# Step 4: Train model
+python models/chordnet_2026_train.py \
+  --data-dir data/training/unified \
+  --epochs 100 \
+  --batch-size 8 \
+  --pretrain \
+  --save-path models/chordnet_2026_v1.pt
+
+================================================================================
+COSTS & RESOURCES
+================================================================================
+
+Compute:
+  - Web scraping: Free (your internet)
+  - YouTube download: Free
+  - Synthetic generation: ~$50 cloud GPU for 30K samples
+  - Training: ~$200-500 cloud GPU (1-2 weeks)
+  - Storage: ~100GB for 50K audio files
+
+Time:
+  - Phase 1 (Automated): 2-4 weeks
+  - Phase 2 (Synthetic): 1-2 weeks
+  - Phase 3 (User feedback): Ongoing
+  - Phase 4 (Training): 1-2 weeks
+  - TOTAL: 4-8 weeks to competitive model
+
+================================================================================
+NEXT STEPS
+================================================================================
+
+1. [ ] Run master_collector.py --target-samples 10000 (test run)
+2. [ ] Verify data quality (check 100 random samples)
+3. [ ] Train baseline model on collected data
+4. [ ] Evaluate accuracy vs Chordify on same test songs
+5. [ ] Launch user feedback feature
+6. [ ] Iterate: collect more, train better, repeat
+
+KEY INSIGHT:
+  Chordify's secret isn't the algorithm - it's the DATA.
+  They have millions of user-corrected chords.
+  Yahoo Studio can beat them by:
+    - Better architecture (ChordNet-2026 > their CNN-LSTM)
+    + Enough data (50K+ songs)
+    + User feedback loop (crowdsourced corrections)
+    + LLM refinement (Gemini post-processing)
+
+With all 4 advantages: EXPECTED TO BEAT CHORDIFY.

@@ -1,0 +1,9 @@
+__tests__/** @yahoostudio
+*.test.ts @yahoostudio
+*.test.tsx @yahoostudio
+*.spec.ts @yahoostudio
+*.spec.tsx @yahoostudio
+jest.config.js @yahoostudio
+jest.setup.js @yahoostudio
+tsconfig.test.json @yahoostudio
+.github/workflows/** @yahoostudio

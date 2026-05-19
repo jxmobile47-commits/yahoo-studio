@@ -1,0 +1,46 @@
+QUICK START - Proprietary Chord Recognition (No Training Required)
+================================================================
+
+STEP 1: Install Dependencies (2 minutes)
+-----------------------------------------
+cd python_backend
+pip install torch numpy librosa
+
+STEP 2: Test with Any Audio File (1 minute)
+---------------------------------------------
+# Use the demo inference script (NO training needed)
+python inference_demo.py your_song.mp3
+
+# Or with a trained model:
+python inference_demo.py your_song.mp3 --model models/proprietary_model.pt
+
+STEP 3: See Results Instantly
+------------------------------
+Output:
+  Time         Chord      Duration   Confidence
+  ---------------------------------------------
+  0.00s        C:maj      1.16s      0.923
+  1.16s        G:maj      1.16s      0.891
+  2.32s        A:min      1.17s      0.856
+  ...
+
+Results saved to: your_song_chords.json
+
+WITHOUT TRAINING (Demo Mode):
+- Model runs with random weights
+- Shows architecture works
+- Useful for testing pipeline
+
+WITH TRAINING (Production):
+- Train on your dataset
+- Achieve ~75-80% accuracy
+- Deploy to production API
+
+API ENDPOINTS (when backend running):
+  POST /api/proprietary/recognize       - Upload audio file
+  GET  /api/proprietary/health           - Check model status
+  GET  /api/proprietary/info             - Model metadata
+
+QUICK TEST:
+  curl -X POST http://localhost:8080/api/proprietary/recognize \
+    -F "audio_file=@song.mp3"

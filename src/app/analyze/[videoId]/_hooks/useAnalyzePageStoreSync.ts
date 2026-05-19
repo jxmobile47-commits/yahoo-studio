@@ -130,7 +130,7 @@ export function useAnalyzePageStoreSync({
     if (uiStore.isLyricsPanelOpen !== isLyricsPanelOpen) {
       uiStore.setIsLyricsPanelOpen(isLyricsPanelOpen);
     }
-    if (uiStore.originalKey !== noteName) {
+    if (noteName && uiStore.originalKey !== noteName) {
       uiStore.initializeOriginalKey(noteName);
     }
     if (uiStore.isFirebaseAudioAvailable !== isFirebaseAudioAvailable) {

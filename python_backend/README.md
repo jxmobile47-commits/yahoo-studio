@@ -1,3 +1,13 @@
+---
+title: Yahoo Studio Backend
+emoji: 🎵
+colorFrom: purple
+colorTo: blue
+sdk: docker
+app_port: 7860
+pinned: false
+---
+
 # Python Backend for Chord Recognition App
 
 This is a Flask-based Python backend API for the Chord Recognition App that handles audio processing, specifically beat detection using the madmom library.

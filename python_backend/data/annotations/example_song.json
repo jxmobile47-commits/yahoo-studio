@@ -1,0 +1,81 @@
+{
+  "song_name": "Example Song",
+  "artist": "Example Artist",
+  "duration": 180.5,
+  "sample_rate": 22050,
+  "hop_length": 512,
+  "chords": [
+    {
+      "start_frame": 0,
+      "end_frame": 50,
+      "start_time": 0.0,
+      "end_time": 1.16,
+      "chord": "C:maj",
+      "confidence": 0.95
+    },
+    {
+      "start_frame": 50,
+      "end_frame": 100,
+      "start_time": 1.16,
+      "end_time": 2.32,
+      "chord": "G:maj",
+      "confidence": 0.92
+    },
+    {
+      "start_frame": 100,
+      "end_frame": 150,
+      "start_time": 2.32,
+      "end_time": 3.49,
+      "chord": "A:min",
+      "confidence": 0.88
+    },
+    {
+      "start_frame": 150,
+      "end_frame": 200,
+      "start_time": 3.49,
+      "end_time": 4.65,
+      "chord": "F:maj",
+      "confidence": 0.90
+    },
+    {
+      "start_frame": 200,
+      "end_frame": 250,
+      "start_time": 4.65,
+      "end_time": 5.81,
+      "chord": "C:maj",
+      "confidence": 0.94
+    },
+    {
+      "start_frame": 250,
+      "end_frame": 300,
+      "start_time": 5.81,
+      "end_time": 6.98,
+      "chord": "G:maj",
+      "confidence": 0.91
+    },
+    {
+      "start_frame": 300,
+      "end_frame": 375,
+      "start_time": 6.98,
+      "end_time": 8.72,
+      "chord": "D:min",
+      "confidence": 0.87
+    },
+    {
+      "start_frame": 375,
+      "end_frame": 425,
+      "start_time": 8.72,
+      "end_time": 9.88,
+      "chord": "G:maj",
+      "confidence": 0.89
+    },
+    {
+      "start_frame": 425,
+      "end_frame": 475,
+      "start_time": 9.88,
+      "end_time": 11.05,
+      "chord": "C:maj",
+      "confidence": 0.96
+    }
+  ]
+}

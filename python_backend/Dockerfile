@@ -99,18 +99,19 @@ RUN mkdir -p /home/app/.cache/spleeter/pretrained_models/5stems && \
     echo "🔍 Verifying checkpoint file exists:" && \
     test -f /home/app/.cache/spleeter/pretrained_models/5stems/checkpoint && echo "✅ checkpoint file found" || echo "❌ checkpoint file NOT found"
 
-# Expose port
-EXPOSE 8080
+# Expose port (HF Spaces requires 7860)
+EXPOSE 7860
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
-    CMD curl -f http://localhost:8080/ || exit 1
+    CMD curl -f http://localhost:7860/ || exit 1
 
 # Set environment variables
 ENV FLASK_ENV=production
 ENV FLASK_DEBUG=False
 ENV PYTHONUNBUFFERED=1
 ENV PYTHONDONTWRITEBYTECODE=1
+ENV PORT=7860
 
 # Run the application with optimized settings for ML processing
-CMD ["gunicorn", "--bind", "0.0.0.0:8080", "--workers", "2", "--timeout", "600", "--worker-class", "sync", "--max-requests", "1000", "--max-requests-jitter", "100", "--preload", "app:app"]
+CMD ["gunicorn", "--bind", "0.0.0.0:7860", "--workers", "2", "--timeout", "600", "--worker-class", "sync", "--max-requests", "1000", "--max-requests-jitter", "100", "--preload", "app:app"]

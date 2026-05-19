@@ -61,11 +61,19 @@ logs
 # vercel
 .vercel
 
-# Backend / ML (separate deployments)
-/python_backend/
+# ML models (too large for GitHub)
 /SongFormer/
 /__tests__/
 /scripts/
+
+# Python backend caches
+python_backend/__pycache__/
+python_backend/.venv/
+python_backend/venv/
+python_backend/*.pyc
+python_backend/models/
+python_backend/temp/
+python_backend/cache/
 
 # typescript
 *.tsbuildinfo

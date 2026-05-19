@@ -101,6 +101,7 @@ import { useSheetSageBackendAvailability } from '@/hooks/sheetsage/useSheetSageB
 import { getSafeBeatModel, getSafeChordModel } from '@/utils/modelFiltering';
 import { MAX_ANALYSIS_DURATION_MINUTES, getAnalysisDurationLimitReason } from '@/utils/analysisDurationLimit';
 import MelodyTranscriptionStatusToast from '@/components/analysis/MelodyTranscriptionStatusToast';
+import QuickChordPreview from '@/components/analysis/QuickChordPreview';
 
 export default function LocalAudioAnalyzePage() {
   const showSheetSage = true;
@@ -1224,6 +1225,11 @@ const simplifiedChordGridData = useMemo(() => {
                 <div className="mb-4 rounded-md border border-warning-200 bg-warning-50 px-3 py-2 text-sm text-warning-800">
                   {analysisDurationLimitReason}
                 </div>
+              )}
+
+              {/* ⚡ Quick Chord Preview — instant browser-based detection (no backend) */}
+              {audioFile && !analysisResults && (
+                <QuickChordPreview audioFile={audioFile} className="mb-4" />
               )}
 
               {/* Model selectors removed — Beat-Transformer + BTC-SL (ChordMini Transformer) used by default */}

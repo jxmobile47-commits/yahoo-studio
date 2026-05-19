@@ -22,12 +22,13 @@ function isLocalDevelopmentOrigin(): boolean {
  * @returns true if BTC models should be shown (local development), false if hidden (production)
  */
 export function areExperimentalModelsAvailable(): boolean {
+  // Explicit disable override
   const envOverride = process.env.NEXT_PUBLIC_ENABLE_EXPERIMENTAL_MODELS;
-  if (envOverride === '1' || envOverride === 'true') {
-    return true;
+  if (envOverride === '0' || envOverride === 'false') {
+    return false;
   }
-
-  return isLocalDevelopmentOrigin() || process.env.NODE_ENV === 'development';
+  // Default: enabled (backend supports Beat-Transformer + BTC SL/PL)
+  return true;
 }
 
 export function areBTCModelsAvailable(): boolean {

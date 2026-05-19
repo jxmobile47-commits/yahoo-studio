@@ -160,7 +160,7 @@ const Navigation: React.FC<NavigationProps> = ({ className = '', showStickySearc
             <Link href="/" className="flex items-center group">
               {/* Light theme logo - hidden in dark mode */}
               <Image
-                src="/chordMiniLogo.webp"
+                src="/yahoo-logo.svg"
                 alt="Yahoo Studio Logo"
                 width={40}
                 height={40}
@@ -170,7 +170,7 @@ const Navigation: React.FC<NavigationProps> = ({ className = '', showStickySearc
               />
               {/* Dark theme logo - hidden in light mode */}
               <Image
-                src="/chordMiniLogo-dark.webp"
+                src="/yahoo-logo.svg"
                 alt="Yahoo Studio Logo"
                 width={40}
                 height={40}

@@ -62,7 +62,7 @@ const Footer: React.FC = () => {
                 <Link href="/">
                   {/* Light theme logo - hidden in dark mode */}
                   <Image
-                    src="/chordMiniLogo.webp"
+                    src="/yahoo-logo.svg"
                     alt="Yahoo Studio Logo"
                     width={40}
                     height={40}
@@ -71,7 +71,7 @@ const Footer: React.FC = () => {
                   />
                   {/* Dark theme logo - hidden in light mode */}
                   <Image
-                    src="/chordMiniLogo-dark.webp"
+                    src="/yahoo-logo.svg"
                     alt="Yahoo Studio Logo"
                     width={40}
                     height={40}

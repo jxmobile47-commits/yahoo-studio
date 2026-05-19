@@ -355,8 +355,6 @@ export default function BeatMakerPage() {
   const [detectionProgress, setDetectionProgress] = useState(0);
   const [fileName, setFileName] = useState<string | null>(null);
   const [showGridLines, setShowGridLines] = useState(true);
-  const [activePage, setActivePage] = useState(0);
-  const totalPages = Math.ceil(STEPS_PER_PATTERN / 16);
 
   const engineRef = useRef(new DrumSynthEngine());
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -591,8 +589,6 @@ export default function BeatMakerPage() {
     };
   }, []);
 
-  const visibleStart = activePage * 16;
-  const _visibleEnd = visibleStart + 16;
 
   return (
     <div className="min-h-screen bg-[#0f1419] text-white">
@@ -663,9 +659,6 @@ export default function BeatMakerPage() {
                 <button onClick={fillBasicPattern} className="px-3 py-2 text-xs bg-[#181e27] border border-gray-700/50 rounded-lg hover:bg-gray-700/50 transition-colors text-gray-300">
                   Basic Pattern
                 </button>
-                <button onClick={handleExportPattern} className="px-3 py-2 text-xs bg-[#181e27] border border-gray-700/50 rounded-lg hover:bg-gray-700/50 transition-colors text-gray-300">
-                  Export JSON
-                </button>
                 <button onClick={() => {
                   exportDrumPatternToMidi(
                     channels.map(c => ({ id: c.id, steps: c.steps.map((active, i) => ({ active, velocity: active ? 0.8 : 0 })) })),
@@ -722,23 +715,8 @@ export default function BeatMakerPage() {
           <div className="flex items-center gap-3 px-4 py-3 bg-[#181e27] border-b border-gray-600/40">
             <span className="text-sm font-semibold text-gray-200">Channel Rack</span>
             <div className="h-4 w-px bg-gray-600" />
-            <span className="text-xs text-gray-500">{STEPS_PER_PATTERN} steps</span>
+            <span className="text-xs text-gray-500">{STEPS_PER_PATTERN} steps · {STEPS_PER_PATTERN / 4} bars</span>
             <div className="flex-1" />
-            <div className="flex items-center gap-1">
-              {Array.from({ length: totalPages }).map((_, i) => (
-                <button
-                  key={i}
-                  onClick={() => setActivePage(i)}
-                  className={`w-8 h-7 text-xs rounded-md transition-colors ${
-                    activePage === i
-                      ? 'bg-cyan-600 text-white'
-                      : 'bg-[#1E252E] text-gray-400 hover:text-gray-200'
-                  }`}
-                >
-                  {i + 1}
-                </button>
-              ))}
-            </div>
             <button
               onClick={() => setShowGridLines(v => !v)}
               className={`text-xs px-2 py-1 rounded-md transition-colors ${showGridLines ? 'text-cyan-400' : 'text-gray-500'}`}
@@ -752,13 +730,12 @@ export default function BeatMakerPage() {
             <div className="min-w-max">
               {/* Beat markers */}
               <div className="flex items-center pl-[220px] pr-4 py-2 bg-[#181e27]/50 border-b border-gray-700/30">
-                {Array.from({ length: 16 }).map((_, i) => {
-                  const globalStep = visibleStart + i;
+                {Array.from({ length: STEPS_PER_PATTERN }).map((_, globalStep) => {
                   const isBeat = globalStep % 4 === 0;
                   const isCurrent = isPlaying && currentStep === globalStep;
                   return (
                     <div
-                      key={i}
+                      key={globalStep}
                       className={`w-10 flex-shrink-0 text-center text-[10px] font-mono ${
                         isCurrent ? 'text-cyan-400 font-bold' : isBeat ? 'text-gray-300' : 'text-gray-600'
                       }`}
@@ -830,15 +807,14 @@ export default function BeatMakerPage() {
 
                   {/* Steps */}
                   <div className="flex items-center pr-4 py-2">
-                    {Array.from({ length: 16 }).map((_, stepIdx) => {
-                      const globalStep = visibleStart + stepIdx;
+                    {Array.from({ length: STEPS_PER_PATTERN }).map((_, globalStep) => {
                       const isActive = channel.steps[globalStep];
                       const isCurrent = isPlaying && currentStep === globalStep;
                       const isBeat = globalStep % 4 === 0;
 
                       return (
                         <button
-                          key={stepIdx}
+                          key={globalStep}
                           onClick={() => toggleStep(channel.id, globalStep)}
                           className={`w-10 h-8 mx-[1px] rounded-md transition-all ${
                             isActive

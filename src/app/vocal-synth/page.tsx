@@ -30,7 +30,8 @@ type WaveformType = 'sine' | 'triangle' | 'sawtooth' | 'square';
 // ============================================================
 
 const NOTE_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
-const TOTAL_BEATS = 32;
+const DEFAULT_TOTAL_BEATS = 32;
+const MAX_TOTAL_BEATS = 256; // up to 64 measures
 const CELL_WIDTH = 40;
 const CELL_HEIGHT = 20;
 const PITCH_MIN = 48; // C3
@@ -175,9 +176,33 @@ function frequencyToMidi(freq: number): number {
   return 69 + 12 * Math.log2(freq / 440);
 }
 
+// Compute RMS energy for a frame (used to detect silence/noise)
+function computeRMS(frame: Float32Array): number {
+  let sum = 0;
+  for (let i = 0; i < frame.length; i++) {
+    const v = frame[i] ?? 0;
+    sum += v * v;
+  }
+  return Math.sqrt(sum / frame.length);
+}
+
+// Median filter to smooth out noisy pitch detections
+function medianFilter(values: (number | null)[], windowSize: number): (number | null)[] {
+  const half = Math.floor(windowSize / 2);
+  return values.map((_, i) => {
+    const start = Math.max(0, i - half);
+    const end = Math.min(values.length, i + half + 1);
+    const slice = values.slice(start, end).filter((v): v is number => v !== null);
+    if (slice.length === 0) return null;
+    slice.sort((a, b) => a - b);
+    return slice[Math.floor(slice.length / 2)] ?? null;
+  });
+}
+
 async function detectPitchFromAudio(
   audioBuffer: AudioBuffer,
-  bpm: number
+  bpm: number,
+  maxBeats: number = MAX_TOTAL_BEATS
 ): Promise<SynthNote[]> {
   const sampleRate = audioBuffer.sampleRate;
   const channelData = audioBuffer.getChannelData(0);
@@ -185,72 +210,96 @@ async function detectPitchFromAudio(
   const hopSize = 512;
   const beatsPerSecond = bpm / 60;
 
-  const rawPitches: { time: number; midi: number }[] = [];
+  // Step 1: Extract pitch + RMS for each frame
+  type FrameData = { time: number; midi: number | null; rms: number };
+  const frames: FrameData[] = [];
 
+  // First pass: compute global max RMS for adaptive threshold
+  let maxRMS = 0;
+  const rmsValues: number[] = [];
   for (let i = 0; i + frameSize < channelData.length; i += hopSize) {
     const frame = channelData.slice(i, i + frameSize);
-    const freq = autocorrelationPitchDetect(frame, sampleRate);
-    if (freq) {
-      const midi = frequencyToMidi(freq);
-      // Filter to vocal range (roughly C3 to C6)
-      if (midi >= 48 && midi <= 84) {
-        rawPitches.push({
-          time: i / sampleRate,
-          midi: Math.round(midi),
-        });
+    const rms = computeRMS(frame);
+    rmsValues.push(rms);
+    if (rms > maxRMS) maxRMS = rms;
+  }
+  // Adaptive silence threshold: 15% of max energy
+  const silenceThreshold = maxRMS * 0.15;
+
+  let frameIdx = 0;
+  for (let i = 0; i + frameSize < channelData.length; i += hopSize) {
+    const rms = rmsValues[frameIdx++] ?? 0;
+    let midi: number | null = null;
+    if (rms >= silenceThreshold) {
+      const frame = channelData.slice(i, i + frameSize);
+      const freq = autocorrelationPitchDetect(frame, sampleRate);
+      if (freq) {
+        const m = frequencyToMidi(freq);
+        if (m >= 48 && m <= 84 && Number.isFinite(m)) {
+          midi = Math.round(m);
+        }
       }
     }
+    frames.push({ time: i / sampleRate, midi, rms });
   }
 
-  // Group consecutive same-pitch frames into notes
+  if (frames.length === 0) return [];
+
+  // Step 2: Median filter to smooth noisy pitches (window of 5 frames)
+  const smoothedMidis = medianFilter(frames.map(f => f.midi), 5);
+
+  // Step 3: Group consecutive same-pitch frames into notes
   const notes: SynthNote[] = [];
-  if (rawPitches.length === 0) return notes;
+  let currentPitch: number | null = null;
+  let startTime = 0;
+  let lastTime = 0;
+  let frameCount = 0;
+  const MIN_FRAMES_PER_NOTE = 4; // ~46ms at 512 hop / 44100 sr
+  const PITCH_TOLERANCE = 1; // semitones
 
-  const first = rawPitches[0];
-  if (!first) return notes;
-  let currentPitch = first.midi;
-  let startTime = first.time;
-  let lastTime = first.time;
+  const flushNote = () => {
+    if (currentPitch === null || frameCount < MIN_FRAMES_PER_NOTE) return;
+    const startBeat = Math.round((startTime * beatsPerSecond) * 4) / 4;
+    const endBeat = Math.round((lastTime * beatsPerSecond) * 4) / 4;
+    const duration = Math.max(0.25, endBeat - startBeat);
+    if (duration >= 0.25 && startBeat < maxBeats) {
+      notes.push({
+        id: `v${Date.now()}_${notes.length}`,
+        pitch: currentPitch,
+        start: startBeat,
+        duration: Math.min(duration, maxBeats - startBeat),
+        lyric: '',
+      });
+    }
+  };
 
-  for (let i = 1; i < rawPitches.length; i++) {
-    const p = rawPitches[i];
-    if (!p) continue;
-    // Same pitch within tolerance, extend note
-    if (Math.abs(p.midi - currentPitch) <= 1) {
-      lastTime = p.time;
+  for (let i = 0; i < smoothedMidis.length; i++) {
+    const midi = smoothedMidis[i];
+    const frame = frames[i];
+    if (midi === null || midi === undefined || !frame) {
+      // Silence: flush current note
+      flushNote();
+      currentPitch = null;
+      frameCount = 0;
+      continue;
+    }
+    if (currentPitch === null) {
+      currentPitch = midi;
+      startTime = frame.time;
+      lastTime = frame.time;
+      frameCount = 1;
+    } else if (Math.abs(midi - currentPitch) <= PITCH_TOLERANCE) {
+      lastTime = frame.time;
+      frameCount++;
     } else {
-      // Save previous note
-      const startBeat = Math.round((startTime * beatsPerSecond) * 4) / 4; // quantize to 16th
-      const endBeat = Math.round((lastTime * beatsPerSecond) * 4) / 4;
-      const duration = Math.max(0.25, endBeat - startBeat);
-      if (duration >= 0.25 && startBeat < TOTAL_BEATS) {
-        notes.push({
-          id: `v${Date.now()}_${notes.length}`,
-          pitch: currentPitch,
-          start: startBeat,
-          duration,
-          lyric: '',
-        });
-      }
-      currentPitch = p.midi;
-      startTime = p.time;
-      lastTime = p.time;
+      flushNote();
+      currentPitch = midi;
+      startTime = frame.time;
+      lastTime = frame.time;
+      frameCount = 1;
     }
   }
-
-  // Final note
-  const startBeat = Math.round((startTime * beatsPerSecond) * 4) / 4;
-  const endBeat = Math.round((lastTime * beatsPerSecond) * 4) / 4;
-  const duration = Math.max(0.25, endBeat - startBeat);
-  if (duration >= 0.25 && startBeat < TOTAL_BEATS) {
-    notes.push({
-      id: `v${Date.now()}_${notes.length}`,
-      pitch: currentPitch,
-      start: startBeat,
-      duration,
-      lyric: '',
-    });
-  }
+  flushNote();
 
   return notes;
 }
@@ -290,6 +339,7 @@ export default function VocalSynthPage() {
   const [isUploading, setIsUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [mode, setMode] = useState<'synth' | 'melodyne' | 'live' | 'multitrack' | 'midi'>('synth');
+  const [totalBeats, setTotalBeats] = useState<number>(DEFAULT_TOTAL_BEATS);
   const [melodyneData, setMelodyneData] = useState<any>(null);
   const [melodyneLoading, setMelodyneLoading] = useState(false);
   const [selectedBlob, setSelectedBlob] = useState<string | null>(null);
@@ -335,7 +385,7 @@ export default function VocalSynthPage() {
       });
 
       currentTick++;
-      if (currentTick / 4 >= TOTAL_BEATS) {
+      if (currentTick / 4 >= totalBeats) {
         currentTick = 0;
         setPlayhead(0);
       }
@@ -364,23 +414,24 @@ export default function VocalSynthPage() {
     synthRef.current?.stopNote(`midi_${note}`);
   }, []);
 
-  // Upload vocal file and detect pitch
+  // Backend Melodyne analysis (gracefully fails if backend offline)
   const analyzeWithMelodyne = useCallback(async (file: File) => {
     setMelodyneLoading(true);
-    setUploadError(null);
     try {
       const formData = new FormData();
       formData.append('audio_file', file);
       const res = await fetch('/api/melodyne/analyze', { method: 'POST', body: formData });
+      const contentType = res.headers.get('content-type') || '';
+      if (!res.ok || !contentType.includes('application/json')) {
+        // Backend not available — silently skip Melodyne (frontend pitch detection still works)
+        return;
+      }
       const data = await res.json();
       if (data.success) {
         setMelodyneData(data.analysis);
-        setMode('melodyne');
-      } else {
-        setUploadError(data.error || 'Analysis failed');
       }
-    } catch (err) {
-      setUploadError(err instanceof Error ? err.message : 'Analysis failed');
+    } catch {
+      // Silent: frontend pitch detection is the primary path
     } finally {
       setMelodyneLoading(false);
     }
@@ -390,13 +441,16 @@ export default function VocalSynthPage() {
     if (!melodyneData) return;
     setMelodyneLoading(true);
     try {
-      const formData = new FormData();
-      formData.append('audio_file', fileInputRef.current?.files?.[0] || new Blob());
       const res = await fetch('/api/melodyne/correct', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ scale: correctionScale }),
       });
+      const contentType = res.headers.get('content-type') || '';
+      if (!res.ok || !contentType.includes('application/json')) {
+        setUploadError('Pitch correction backend unavailable');
+        return;
+      }
       const data = await res.json();
       if (data.success) setMelodyneData(data.corrected);
     } catch (err) {
@@ -422,15 +476,16 @@ export default function VocalSynthPage() {
       const detectedNotes = await detectPitchFromAudio(audioBuffer, bpm);
 
       if (detectedNotes.length === 0) {
-        setUploadError('No vocal notes detected. Try a clearer vocal recording.');
+        setUploadError('No vocal notes detected. Try a clearer vocal recording with less background noise.');
       } else {
         setNotes(detectedNotes);
         setSelectedNote(null);
         setPlayhead(0);
+        // Auto-extend grid to fit detected notes
+        const lastBeat = Math.max(...detectedNotes.map(n => n.start + n.duration));
+        const requiredBeats = Math.ceil((lastBeat + 4) / 4) * 4; // round up to nearest 4 beats
+        setTotalBeats(Math.min(MAX_TOTAL_BEATS, Math.max(DEFAULT_TOTAL_BEATS, requiredBeats)));
       }
-
-      // Also run Melodyne analysis
-      await analyzeWithMelodyne(file);
     } catch (err) {
       setUploadError(err instanceof Error ? err.message : 'Failed to process audio');
     } finally {
@@ -449,7 +504,7 @@ export default function VocalSynthPage() {
     const beat = Math.floor(x / CELL_WIDTH);
     const pitch = PITCH_MAX - Math.floor(y / CELL_HEIGHT);
 
-    if (beat < 0 || beat >= TOTAL_BEATS || pitch < PITCH_MIN || pitch > PITCH_MAX) return;
+    if (beat < 0 || beat >= totalBeats || pitch < PITCH_MIN || pitch > PITCH_MAX) return;
 
     if (tool === 'draw') {
       // Check overlap
@@ -528,7 +583,7 @@ export default function VocalSynthPage() {
     return () => window.removeEventListener('keydown', handler);
   }, [togglePlayback, deleteSelected, resizeSelected, selectedNote, editingLyric]);
 
-  const gridWidth = TOTAL_BEATS * CELL_WIDTH;
+  const gridWidth = totalBeats * CELL_WIDTH;
   const gridHeight = PITCH_RANGE * CELL_HEIGHT;
 
   return (
@@ -841,7 +896,7 @@ export default function VocalSynthPage() {
                   ))}
 
                   {/* Vertical lines */}
-                  {Array.from({ length: TOTAL_BEATS + 1 }, (_, i) => (
+                  {Array.from({ length: totalBeats + 1 }, (_, i) => (
                     <line key={`v-${i}`}
                       x1={i * CELL_WIDTH} y1={0} x2={i * CELL_WIDTH} y2={gridHeight}
                       stroke="currentColor"
@@ -851,7 +906,7 @@ export default function VocalSynthPage() {
                   ))}
 
                   {/* Measure numbers */}
-                  {Array.from({ length: Math.ceil(TOTAL_BEATS / 4) }, (_, i) => (
+                  {Array.from({ length: Math.ceil(totalBeats / 4) }, (_, i) => (
                     <text key={`m-${i}`}
                       x={i * 4 * CELL_WIDTH + 4} y={12}
                       fontSize="9" className="fill-gray-400 dark:fill-gray-500"

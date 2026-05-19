@@ -54,7 +54,6 @@ const Navigation: React.FC<NavigationProps> = ({ className = '', showStickySearc
     { href: '/vocal-synth', label: 'Vocal Synth' },
     { href: '/stem-separation', label: 'Stem Sep' },
     { href: '/beat-maker', label: 'Beat Maker' },
-    { href: '/docs', label: 'API Docs' },
     { href: '/settings', label: 'Settings' },
   ];
 

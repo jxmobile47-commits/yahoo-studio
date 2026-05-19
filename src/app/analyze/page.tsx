@@ -1226,22 +1226,7 @@ const simplifiedChordGridData = useMemo(() => {
                 </div>
               )}
 
-              {/* Model Selectors - Hide when analysis is complete */}
-              {!analysisResults && (
-                <div className="flex flex-col md:flex-row gap-4 mb-4">
-                  <HeroUIBeatModelSelector
-                    onChange={setBeatDetector}
-                    defaultValue={beatDetector}
-                    className={audioProcessingState.isAnalyzing ? 'opacity-50 pointer-events-none' : ''}
-                  />
-                  <HeroUIChordModelSelector
-                    selectedModel={chordDetector}
-                    onModelChange={setChordDetector}
-                    disabled={audioProcessingState.isAnalyzing}
-                    className=""
-                  />
-                </div>
-              )}
+              {/* Model selectors removed — Beat-Transformer + BTC-SL (ChordMini Transformer) used by default */}
 
               {/* Audio Analysis Status Indicator - Hide when analysis is complete */}
               {!analysisResults && (

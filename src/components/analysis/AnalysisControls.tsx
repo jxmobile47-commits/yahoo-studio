@@ -170,23 +170,7 @@ export const AnalysisControls: React.FC<AnalysisControlsProps> = ({
       <Divider className="opacity-50" />
 
       <CardBody className="overflow-visible pt-4">
-        <div className="mb-4 flex flex-col gap-4 md:flex-row md:items-start overflow-visible">
-          <div className="w-full md:w-1/2 relative z-40">
-            <HeroUIBeatModelSelector
-              onChange={onBeatDetectorChange}
-              defaultValue={beatDetector}
-              disabled={isAnalyzing}
-            />
-          </div>
-
-          <div className="w-full md:w-1/2 relative z-30">
-            <HeroUIChordModelSelector
-              selectedModel={chordDetector}
-              onModelChange={onChordDetectorChange}
-              disabled={isAnalyzing}
-            />
-          </div>
-        </div>
+        {/* Model selectors removed — Beat-Transformer + BTC-SL (ChordMini Transformer) forced as default */}
 
         <div className={`flex flex-col gap-4 rounded-xl border p-4 md:flex-row md:items-center md:justify-between ${statusStyles}`}>
           <div className="flex items-start gap-3">

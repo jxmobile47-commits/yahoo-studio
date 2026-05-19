@@ -33,38 +33,20 @@ export const useModelState = (options: UseModelStateOptions = {}): ModelState =>
     initialChordDetector ? getSafeChordModel(initialChordDetector) : null
   );
 
-  // Initialize model states with localStorage persistence
+  // Forced defaults: Beat-Transformer + BTC-SL (ChordMini Transformer)
+  // Model selection UI removed — these are now the only models used.
   const [beatDetector, setBeatDetector] = useState<BeatDetectorType>(() => {
     if (initialBeatDetector) {
       return getSafeBeatModel(initialBeatDetector);
     }
-
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('yahooStudio_beat_detector');
-      if (saved && ['madmom', 'beat-transformer'].includes(saved)) {
-        return getSafeBeatModel(saved as BeatDetectorType);
-      }
-      // If saved value was 'auto', default to 'madmom'
-      if (saved === 'auto') {
-        localStorage.setItem('yahooStudio_beat_detector', 'madmom');
-      }
-    }
-    return 'madmom';
+    return 'beat-transformer';
   });
 
   const [chordDetector, setChordDetector] = useState<ChordDetectorType>(() => {
     if (initialChordDetector) {
       return getSafeChordModel(initialChordDetector);
     }
-
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('yahooStudio_chord_detector');
-      if (saved && ['chord-cnn-lstm', 'btc-sl', 'btc-pl'].includes(saved)) {
-        // Ensure the saved model is available in the current environment
-        return getSafeChordModel(saved as ChordDetectorType);
-      }
-    }
-    return 'chord-cnn-lstm';
+    return 'btc-sl';
   });
 
   const [modelsInitialized, setModelsInitialized] = useState<boolean>(false);

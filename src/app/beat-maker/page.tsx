@@ -756,7 +756,7 @@ export default function BeatMakerPage() {
           <div className="overflow-x-auto">
             <div className="min-w-max">
               {/* Beat markers */}
-              <div className="flex items-center pl-[220px] pr-4 py-2 bg-[#181e27]/50 border-b border-gray-700/30">
+              <div className="flex items-center pl-[180px] sm:pl-[220px] pr-4 py-2 bg-[#181e27]/50 border-b border-gray-700/30">
                 {Array.from({ length: STEPS_PER_PATTERN }).map((_, globalStep) => {
                   const isBeat = globalStep % 4 === 0;
                   const isCurrent = isPlaying && currentStep === globalStep;
@@ -782,7 +782,7 @@ export default function BeatMakerPage() {
                   }`}
                 >
                   {/* Channel info */}
-                  <div className="w-[220px] flex-shrink-0 flex items-center gap-2 px-3 py-2 bg-[#181e27]/30">
+                  <div className="w-[180px] sm:w-[220px] flex-shrink-0 flex items-center gap-2 px-3 py-2 bg-[#181e27]/30">
                     {/* LED */}
                     <div
                       className={`w-2 h-2 rounded-full transition-colors flex-shrink-0 ${

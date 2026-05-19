@@ -4,9 +4,10 @@ import React from 'react';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useApiKeys } from '@/hooks/settings/useApiKeys';
 import ApiKeySettings from '@/components/settings/ApiKeySettings';
+import DataManagement from '@/components/settings/DataManagement';
 import Navigation from '@/components/common/Navigation';
 import { Card, CardBody, Switch, Tabs, Tab, Spinner, Divider } from '@heroui/react';
-import { FiSettings, FiKey, FiLock, FiMoon, FiShield, FiDatabase, FiBarChart2 } from 'react-icons/fi';
+import { FiSettings, FiKey, FiLock, FiMoon, FiShield, FiDatabase, FiBarChart2, FiHardDrive } from 'react-icons/fi';
 import { ApiCredentialService } from '@/types/apiKeyTypes';
 
 export default function SettingsPage() {
@@ -143,6 +144,19 @@ export default function SettingsPage() {
                   />
                 </div>
               )}
+            </Tab>
+
+            {/* Data Management Tab */}
+            <Tab
+              key="data"
+              title={
+                <div className="flex items-center space-x-2">
+                  <FiHardDrive className="w-4 h-4" />
+                  <span>Data</span>
+                </div>
+              }
+            >
+              <DataManagement />
             </Tab>
 
             {/* Privacy Tab */}

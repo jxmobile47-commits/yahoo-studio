@@ -136,6 +136,16 @@ body::after {
   }
 }
 
+/* Skeleton shimmer animation */
+@keyframes shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+.animate-shimmer {
+  animation: shimmer 1.5s infinite;
+}
+
 /* Radix Accordion Styles */
 [data-radix-accordion-content] {
   overflow: hidden;

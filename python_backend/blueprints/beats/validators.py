@@ -30,7 +30,7 @@ def validate_beat_detection_request() -> Tuple[bool, Optional[str], Optional[Fil
 
     # Validate detector parameter
     detector = request.form.get('detector', 'auto').lower()
-    valid_detectors = ['beat-transformer', 'madmom', 'librosa', 'auto']
+    valid_detectors = ['allin1', 'librosa', 'auto']
     if detector not in valid_detectors:
         return False, f"Invalid detector '{detector}'. Must be one of: {', '.join(valid_detectors)}", file, {}
 
@@ -68,7 +68,7 @@ def validate_firebase_beat_detection_request() -> Tuple[bool, Optional[str], Dic
 
     # Validate detector parameter
     detector = request.form.get('detector', 'auto').lower()
-    valid_detectors = ['beat-transformer', 'madmom', 'librosa', 'auto']
+    valid_detectors = ['allin1', 'librosa', 'auto']
     if detector not in valid_detectors:
         return False, f"Invalid detector '{detector}'. Must be one of: {', '.join(valid_detectors)}", {}
 
@@ -90,16 +90,10 @@ def get_file_size_mb(file: FileStorage) -> float:
     Returns:
         float: File size in MB
     """
-    # Save current position
     current_pos = file.tell()
-
-    # Seek to end to get size
-    file.seek(0, 2)  # Seek to end
+    file.seek(0, 2)
     size_bytes = file.tell()
-
-    # Restore original position
     file.seek(current_pos)
-
     return size_bytes / (1024 * 1024)
 
 
@@ -119,23 +113,15 @@ def validate_file_size(file: FileStorage, detector: str, force: bool) -> Tuple[b
     """
     file_size_mb = get_file_size_mb(file)
 
-    # Size limits based on detector
     size_limits = {
-        'beat-transformer': 50,  # 50MB for uploads
-        'madmom': 100,          # 100MB for madmom
-        'librosa': 200          # 200MB for librosa
+        'allin1': 150,
+        'librosa': 500,
+        'auto': 150
     }
 
-    # Check size limits unless force is enabled
     if not force:
-        if detector == 'beat-transformer' and file_size_mb > size_limits['beat-transformer']:
-            return False, f"File too large ({file_size_mb:.1f}MB > {size_limits['beat-transformer']}MB). Use detector='madmom' or 'librosa', or add 'force=true'."
-        elif detector == 'madmom' and file_size_mb > size_limits['madmom']:
-            return False, f"File too large ({file_size_mb:.1f}MB > {size_limits['madmom']}MB). Use detector='librosa' or add 'force=true'."
-        elif detector == 'librosa' and file_size_mb > size_limits['librosa']:
-            return False, f"File too large ({file_size_mb:.1f}MB > {size_limits['librosa']}MB)."
-        elif detector == 'auto' and file_size_mb > 50:
-            # For auto, suggest alternatives for large files
-            return False, f"File too large ({file_size_mb:.1f}MB > 50MB). Specify detector='madmom' or 'librosa' for larger files, or add 'force=true'."
+        limit = size_limits.get(detector, 150)
+        if file_size_mb > limit:
+            return False, f"File too large ({file_size_mb:.1f}MB > {limit}MB). Use detector='librosa' for larger files, or add 'force=true'."
 
     return True, None

@@ -48,11 +48,12 @@ def recognize_chords():
 
     Parameters:
     - file: The audio file to analyze (multipart/form-data)
-    - audio_path: Alternative to file, path to an existing audio file on the server
-    - detector: Model to use ('chord-cnn-lstm', 'btc-sl', 'btc-pl', 'auto')
+    - audio_path: Path to an existing audio file on the server
+    - detector: 'btc-sl', 'btc-pl', or 'auto' (default)
     - chord_dict: Optional chord dictionary to use
-    - force: Force use of detector even if file is large
-    - use_spleeter: Use Spleeter for audio separation
+    - force: Set to 'true' to force using requested detector even for large files
+    - use_vocal_isolation: Use Demucs vocal isolation before chord detection
+    - use_gemini_postprocess: Apply Gemini enharmonic correction (default: true)
 
     Returns:
     - JSON with chord recognition results
@@ -104,7 +105,8 @@ def recognize_chords():
 
         log_info(f"Processing chord recognition request: detector={params['detector']}, "
                 f"chord_dict={params['chord_dict']}, force={params['force']}, "
-                f"use_spleeter={params['use_spleeter']}")
+                f"use_vocal_isolation={params['use_vocal_isolation']}, "
+                f"use_gemini_postprocess={params['use_gemini_postprocess']}")
 
         # Run chord recognition
         result = chord_service.recognize_chords(
@@ -112,7 +114,8 @@ def recognize_chords():
             detector=params['detector'],
             chord_dict=params['chord_dict'],
             force=params['force'],
-            use_spleeter=params['use_spleeter']
+            use_vocal_isolation=params['use_vocal_isolation'],
+            use_gemini_postprocess=params['use_gemini_postprocess']
         )
 
         if result.get('success'):
@@ -185,8 +188,9 @@ def recognize_chords_firebase():
                 file_path=temp_file_path,
                 detector=detector,
                 chord_dict=chord_dict,
-                force=False,  # Don't force for Firebase requests
-                use_spleeter=False  # Don't use Spleeter for Firebase requests
+                force=False,
+                use_vocal_isolation=False,
+                use_gemini_postprocess=True
             )
 
         if result.get('success'):
@@ -244,7 +248,8 @@ def chord_model_info():
                 }
                 for name, info in detector_info["detectors"].items()
             },
-            "spleeter_available": detector_info["spleeter_available"],
+            "demucs_available": detector_info.get("demucs_available", False),
+            "gemini_available": detector_info.get("gemini_available", False),
             "default_chord_model": detector_info["available_detectors"][0] if detector_info["available_detectors"] else None
         })
 
@@ -253,45 +258,6 @@ def chord_model_info():
         log_error(error_msg)
         return jsonify({
             "success": False,
-            "error": error_msg
-        }), 500
-
-
-@chords_bp.route('/api/test-chord-cnn-lstm', methods=['GET'])
-@limiter.limit(config.get_rate_limit('test'))
-def test_chord_cnn_lstm():
-    """Test Chord-CNN-LSTM model availability"""
-    try:
-        # Get chord recognition service
-        chord_service = current_app.extensions['services']['chord_recognition']
-
-        # Get detector
-        detector = chord_service.detectors['chord-cnn-lstm']
-
-        if detector.is_available():
-            model_info = detector.get_model_info()
-            return jsonify({
-                "success": True,
-                "model": "Chord-CNN-LSTM",
-                "status": "available",
-                "message": "Chord-CNN-LSTM model is ready for use",
-                "model_info": model_info
-            })
-        else:
-            return jsonify({
-                "success": False,
-                "model": "Chord-CNN-LSTM",
-                "status": "unavailable",
-                "error": "Chord-CNN-LSTM model is not available"
-            })
-
-    except Exception as e:
-        error_msg = f"Error testing Chord-CNN-LSTM: {str(e)}"
-        log_error(error_msg)
-        return jsonify({
-            "success": False,
-            "model": "Chord-CNN-LSTM",
-            "status": "error",
             "error": error_msg
         }), 500
 
@@ -390,7 +356,7 @@ def test_all_chord_models():
         }
 
         # Test each detector
-        for detector_name in ['chord-cnn-lstm', 'btc-sl', 'btc-pl']:
+        for detector_name in ['btc-sl', 'btc-pl']:
             detector = chord_service.detectors[detector_name]
 
             test_result = {
@@ -403,7 +369,6 @@ def test_all_chord_models():
                 results["available_models"].append(detector_name)
                 test_result["status"] = "available"
 
-                # Add model info
                 try:
                     model_info = detector.get_model_info()
                     test_result["model_info"] = model_info
@@ -425,8 +390,9 @@ def test_all_chord_models():
             "default_model": results["available_models"][0] if results["available_models"] else "none"
         }
 
-        # Add Spleeter info
-        results["spleeter_available"] = chord_service.spleeter_service.is_available()
+        # Add Demucs and Gemini info
+        results["demucs_available"] = chord_service.demucs_service.is_available()
+        results["gemini_available"] = chord_service.gemini_service.is_available()
 
         return jsonify(results)
 

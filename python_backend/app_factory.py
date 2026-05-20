@@ -164,6 +164,24 @@ def init_services(app: Flask, config) -> None:
         log_info(f"Failed to initialize SongFormer service: {e}")
         services['songformer'] = None
 
+    # Initialize Basic Pitch melody transcription service
+    try:
+        from services.audio.basic_pitch_melody_service import BasicPitchMelodyService
+        services['melody_transcription'] = BasicPitchMelodyService()
+        log_info("Basic Pitch melody transcription service initialized")
+    except Exception as e:
+        log_info(f"Failed to initialize Basic Pitch melody service: {e}")
+        services['melody_transcription'] = None
+
+    # Initialize Demucs stem separation service
+    try:
+        from services.audio.demucs_stem_service import DemucsStemService
+        services['stem_separation'] = DemucsStemService()
+        log_info("Demucs stem separation service initialized")
+    except Exception as e:
+        log_info(f"Failed to initialize Demucs stem service: {e}")
+        services['stem_separation'] = None
+
     # Initialize proprietary chord model
     try:
         import os

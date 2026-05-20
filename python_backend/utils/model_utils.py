@@ -9,65 +9,74 @@ from pathlib import Path
 from utils.logging import log_info, log_error, log_debug
 
 
-def check_spleeter_availability():
+def check_allin1_availability():
     """
-    Check if Spleeter is available without loading models.
-    
+    Check if ALLIN1 (beat detection) is available.
+
     Returns:
-        bool: True if Spleeter is available
+        bool: True if allin1 package is installed
     """
     try:
-        import spleeter
-        log_debug("Spleeter is available")
+        import allin1
+        log_debug("ALLIN1 is available")
         return True
     except ImportError as e:
-        log_debug(f"Spleeter not available: {e}")
+        log_debug(f"ALLIN1 not available: {e}")
         return False
 
 
-def check_beat_transformer_availability():
+def check_demucs_availability():
     """
-    Check if Beat-Transformer is available without loading it.
-    
+    Check if Demucs (stem separation) is available.
+
     Returns:
-        bool: True if Beat-Transformer is available
+        bool: True if demucs package is installed
     """
     try:
-        from models.beat_transformer import is_beat_transformer_available
-        available = is_beat_transformer_available()
-        log_debug(f"Beat-Transformer availability: {available}")
-        return available
-    except Exception as e:
-        log_debug(f"Beat-Transformer availability check failed: {e}")
+        import demucs
+        log_debug("Demucs is available")
+        return True
+    except ImportError as e:
+        log_debug(f"Demucs not available: {e}")
         return False
 
 
-def check_chord_cnn_lstm_availability():
+def check_basic_pitch_availability():
     """
-    Check if Chord-CNN-LSTM is available without loading it.
-    
+    Check if Basic Pitch (melody transcription) is available.
+
     Returns:
-        bool: True if Chord-CNN-LSTM is available
+        bool: True if basic-pitch package is installed
     """
     try:
-        # Get the model directory path
-        chord_cnn_lstm_dir = Path(__file__).parent.parent / "models" / "Chord-CNN-LSTM"
-        
-        # Check if the model directory exists and has required files
-        if chord_cnn_lstm_dir.exists():
-            # Check for key files that indicate the model is present
-            required_files = ['chord_recognition.py']
-            for file in required_files:
-                if not (chord_cnn_lstm_dir / file).exists():
-                    log_debug(f"Chord-CNN-LSTM missing required file: {file}")
-                    return False
-            log_debug("Chord-CNN-LSTM is available")
-            return True
-        else:
-            log_debug(f"Chord-CNN-LSTM directory not found: {chord_cnn_lstm_dir}")
-            return False
+        import basic_pitch
+        log_debug("Basic Pitch is available")
+        return True
+    except ImportError as e:
+        log_debug(f"Basic Pitch not available: {e}")
+        return False
+
+
+def check_gemini_availability():
+    """
+    Check if Google Gemini API is configured and available.
+
+    Returns:
+        bool: True if google-generativeai is installed and GOOGLE_API_KEY is set
+    """
+    import os
+    api_key = os.environ.get("GOOGLE_API_KEY", "")
+    if not api_key:
+        log_debug("Gemini not available: GOOGLE_API_KEY not set")
+        return False
+    try:
+        import google.generativeai as genai
+        genai.configure(api_key=api_key)
+        _ = [m for m in genai.list_models() if "gemini" in m.name]
+        log_debug("Gemini API is available")
+        return True
     except Exception as e:
-        log_debug(f"Chord-CNN-LSTM availability check failed: {e}")
+        log_debug(f"Gemini API not available: {e}")
         return False
 
 
@@ -291,9 +300,10 @@ def get_all_model_availability():
     """
     try:
         availability = {
-            'spleeter': check_spleeter_availability(),
-            'beat_transformer': check_beat_transformer_availability(),
-            'chord_cnn_lstm': check_chord_cnn_lstm_availability(),
+            'allin1': check_allin1_availability(),
+            'demucs': check_demucs_availability(),
+            'basic_pitch': check_basic_pitch_availability(),
+            'gemini': check_gemini_availability(),
             'genius': check_genius_availability(),
             'btc': check_btc_availability(),
             'pytorch': check_pytorch_availability(),

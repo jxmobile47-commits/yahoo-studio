@@ -1,15 +1,13 @@
 """
 Stem Separation API Blueprint
 ==============================
-Provides AI-powered audio source separation using Spleeter.
-Supports 2-stem (vocals/accompaniment) and 4-stem separation.
+Provides AI-powered audio source separation using Demucs v4 by Meta AI.
+Replaces deprecated Spleeter with higher quality htdemucs model.
+Supports 4-stem (vocals, drums, bass, other) and 6-stem separation.
 """
 
 import os
-import io
-import base64
 import tempfile
-import time
 from pathlib import Path
 from typing import Dict, Any
 
@@ -17,21 +15,21 @@ from flask import Blueprint, request, jsonify, send_file
 from werkzeug.utils import secure_filename
 
 from utils.logging import log_info, log_error
-from services.audio.spleeter_service import SpleeterService
+from services.audio.demucs_stem_service import DemucsStemService
 
 stem_bp = Blueprint('stem', __name__, url_prefix='/api/stem')
 
 # Allowed audio file extensions
 ALLOWED_EXTENSIONS = {'.wav', '.mp3', '.flac', '.ogg', '.m4a'}
 
-# Spleeter service instance
-_spleeter_service = None
+# Demucs service instance
+_demucs_service = None
 
-def get_spleeter_service():
-    global _spleeter_service
-    if _spleeter_service is None:
-        _spleeter_service = SpleeterService()
-    return _spleeter_service
+def get_demucs_service():
+    global _demucs_service
+    if _demucs_service is None:
+        _demucs_service = DemucsStemService()
+    return _demucs_service
 
 
 def _allowed_file(filename: str) -> bool:
@@ -40,121 +38,116 @@ def _allowed_file(filename: str) -> bool:
 
 @stem_bp.route('/status', methods=['GET'])
 def stem_status():
-    """Check if Spleeter is available."""
-    service = get_spleeter_service()
+    """Check if Demucs is available."""
+    service = get_demucs_service()
     available = service.is_available()
+    models = service.get_available_models() if available else []
     return jsonify({
         "success": True,
         "available": available,
-        "models": ["2stems", "4stems", "5stems"] if available else [],
-        "message": "Spleeter ready" if available else "Spleeter not installed. Install with: pip install spleeter"
+        "models": models,
+        "message": "Demucs ready" if available else "Demucs not installed. Install with: pip install demucs"
     })
 
 
 @stem_bp.route('/separate', methods=['POST'])
 def separate_stems():
     """
-    Separate uploaded audio into stems.
-    
+    Separate uploaded audio into stems using Demucs v4.
+
     Request:
         - audio_file: Audio file (multipart/form-data)
-        - model: '2stems' | '4stems' | '5stems' (default: '2stems')
-    
+        - model: 'htdemucs' | 'htdemucs_ft' | 'htdemucs_6s' | 'hdemucs_mmi' (default: 'htdemucs')
+
     Response:
         {
             "success": bool,
             "stems": {
-                "vocals": { "url": str, "format": "wav" },
-                "accompaniment": { "url": str, "format": "wav" },
+                "vocals": { "download_url": str, "format": "wav", "filename": str },
+                "drums": { "download_url": str, "format": "wav", "filename": str },
                 ...
             },
             "processing_time": float,
             "model_used": str
         }
     """
-    service = get_spleeter_service()
-    
+    service = get_demucs_service()
+
     if not service.is_available():
         return jsonify({
             "success": False,
-            "error": "Spleeter is not available on this server"
+            "error": "Demucs is not available on this server"
         }), 503
-    
-    # Validate request
+
     if 'audio_file' not in request.files:
         return jsonify({
             "success": False,
             "error": "No audio file provided"
         }), 400
-    
+
     file = request.files['audio_file']
     if not file or not file.filename:
         return jsonify({
             "success": False,
             "error": "Empty file"
         }), 400
-    
+
     if not _allowed_file(file.filename):
         return jsonify({
             "success": False,
             "error": f"Invalid file type. Allowed: {', '.join(ALLOWED_EXTENSIONS)}"
         }), 400
-    
-    # Get model selection
-    model = request.form.get('model', '2stems')
-    valid_models = {'2stems', '4stems', '5stems'}
+
+    model = request.form.get('model', 'htdemucs')
+    valid_models = {'htdemucs', 'htdemucs_ft', 'htdemucs_6s', 'hdemucs_mmi'}
     if model not in valid_models:
-        model = '2stems'
-    
-    # Save uploaded file to temp
+        model = 'htdemucs'
+
     temp_dir = tempfile.mkdtemp(prefix='stem_upload_')
     try:
         filename = secure_filename(file.filename)
         input_path = os.path.join(temp_dir, filename)
         file.save(input_path)
         log_info(f"Stem separation request: {filename} with model {model}")
-        
-        # Run separation
-        model_name = f'{model}-16kHz'
-        result = service.separate_audio(input_path, model_name=model_name)
-        
+
+        result = service.separate_audio(input_path, output_dir=temp_dir, model_name=model)
+
         if not result.get('success'):
             return jsonify({
                 "success": False,
                 "error": result.get('error', 'Separation failed')
             }), 500
-        
-        # Build response with download URLs
+
         stems = {}
         for stem_name, stem_path in result.get('stems', {}).items():
             if os.path.exists(stem_path):
-                # Store stem path for download endpoint
                 stems[stem_name] = {
                     "download_url": f"/api/stem/download?path={os.path.abspath(stem_path)}&name={stem_name}",
                     "format": "wav",
                     "filename": os.path.basename(stem_path)
                 }
-        
+
         return jsonify({
             "success": True,
             "stems": stems,
             "processing_time": result.get('processing_time', 0),
-            "model_used": result.get('model_used', model_name),
+            "model_used": result.get('model_used', model),
             "message": f"Successfully separated into {len(stems)} stems"
         })
-        
+
     except Exception as e:
         log_error(f"Stem separation failed: {e}")
+        import traceback
+        log_error(traceback.format_exc())
         return jsonify({
             "success": False,
             "error": f"Separation failed: {str(e)}"
         }), 500
     finally:
-        # Cleanup temp files (keep output stems for download)
         try:
             if os.path.exists(input_path):
                 os.remove(input_path)
-        except:
+        except Exception:
             pass
 
 

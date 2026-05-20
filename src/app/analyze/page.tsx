@@ -5,33 +5,14 @@ import dynamic from 'next/dynamic';
 import { Button } from '@heroui/react';
 import { addToast } from '@heroui/react';
 import Navigation from '@/components/common/Navigation';
-import { analyzeAudioWithRateLimit, AnalysisResult } from '@/services/chord-analysis/chordRecognitionService';
+import { AnalysisResult } from '@/services/chord-analysis/chordRecognitionService';
+import { analyzeAudioInBrowser } from '@/services/chord-analysis/browserAnalysisAdapter';
 import { ProcessingStatusSkeleton } from '@/components/common/SkeletonLoaders';
 import {
   getChordGridData as getChordGridDataService
 } from '@/services/chord-analysis/chordGridCalculationService';
 
 // Dynamic imports for heavy components with better loading states
-const HeroUIBeatModelSelector = dynamic(() => import('@/components/analysis/HeroUIBeatModelSelector'), {
-  loading: () => (
-    <div className="space-y-2">
-      <div className="h-4 w-24 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
-      <div className="h-12 bg-gray-100 dark:bg-gray-800 animate-pulse rounded-lg" />
-    </div>
-  ),
-  ssr: false
-});
-
-const HeroUIChordModelSelector = dynamic(() => import('@/components/analysis/HeroUIChordModelSelector'), {
-  loading: () => (
-    <div className="space-y-2">
-      <div className="h-4 w-24 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
-      <div className="h-12 bg-gray-100 dark:bg-gray-800 animate-pulse rounded-lg" />
-    </div>
-  ),
-  ssr: false
-});
-
 
 // Lyrics section (dynamic)
 const LyricsSectionDyn = dynamic(() => import('@/components/lyrics/LyricsSection').then(mod => ({ default: mod.LyricsSection })), {
@@ -101,7 +82,6 @@ import { useSheetSageBackendAvailability } from '@/hooks/sheetsage/useSheetSageB
 import { getSafeBeatModel, getSafeChordModel } from '@/utils/modelFiltering';
 import { MAX_ANALYSIS_DURATION_MINUTES, getAnalysisDurationLimitReason } from '@/utils/analysisDurationLimit';
 import MelodyTranscriptionStatusToast from '@/components/analysis/MelodyTranscriptionStatusToast';
-import QuickChordPreview from '@/components/analysis/QuickChordPreview';
 
 export default function LocalAudioAnalyzePage() {
   const showSheetSage = true;
@@ -656,9 +636,15 @@ export default function LocalAudioAnalyzePage() {
         isAnalyzing: true
       }));
 
-      // Start chord and beat analysis with selected detectors using original File object
-      // This avoids the 10x size bloat from AudioBuffer conversion (3.6MB → 41.7MB)
-      const results = await analyzeAudioWithRateLimit(audioFile, beatDetector, chordDetector);
+      // PRIMARY: instant browser-FFT chord detection (no backend, no waiting on HF cold start).
+      // Produces a full AnalysisResult (chords + synthetic uniform beat grid) so the
+      // existing ChordGrid + downstream UI render unchanged.
+      const results = await analyzeAudioInBrowser(audioFile, {
+        fftSize: 4096,
+        hopSize: 2048,
+        smoothWindow: 9,
+        onProgress: (p) => setProgress(Math.round(p * 100)),
+      });
 
       // FIXED: Clear the stage timeout to prevent it from overriding completion
       if (stageTimeoutRef.current) {
@@ -1227,12 +1213,8 @@ const simplifiedChordGridData = useMemo(() => {
                 </div>
               )}
 
-              {/* ⚡ Quick Chord Preview — instant browser-based detection (no backend) */}
-              {audioFile && !analysisResults && (
-                <QuickChordPreview audioFile={audioFile} className="mb-4" />
-              )}
-
-              {/* Model selectors removed — Beat-Transformer + BTC-SL (ChordMini Transformer) used by default */}
+              {/* Browser-FFT is now the PRIMARY analyzer (instant, no backend).
+                  The standalone Quick Preview panel is no longer needed. */}
 
               {/* Audio Analysis Status Indicator - Hide when analysis is complete */}
               {!analysisResults && (

@@ -46,7 +46,7 @@ def validate_chord_recognition_request() -> Tuple[bool, Optional[str], Optional[
         detector = request.form.get('detector', 'auto').lower()
         chord_dict = request.form.get('chord_dict', None)
 
-    valid_detectors = ['chord-cnn-lstm', 'btc-sl', 'btc-pl', 'auto']
+    valid_detectors = ['btc-sl', 'btc-pl', 'auto']
     if detector not in valid_detectors:
         return False, f"Invalid detector '{detector}'. Must be one of: {', '.join(valid_detectors)}", file, {}
 
@@ -57,12 +57,19 @@ def validate_chord_recognition_request() -> Tuple[bool, Optional[str], Optional[
         force_param = request.args.get('force', request.form.get('force', '')).lower()
         force = force_param == 'true'
 
-    # Validate use_spleeter parameter
+    # Validate vocal isolation (Demucs) parameter
     if json_data:
-        use_spleeter = json_data.get('useSpleeter', False)
+        use_vocal_isolation = json_data.get('useVocalIsolation', False)
     else:
-        spleeter_param = request.form.get('use_spleeter', 'false').lower()
-        use_spleeter = spleeter_param == 'true'
+        vocal_param = request.form.get('use_vocal_isolation', 'false').lower()
+        use_vocal_isolation = vocal_param == 'true'
+
+    # Validate Gemini post-processing parameter
+    if json_data:
+        use_gemini_postprocess = json_data.get('useGeminiPostprocess', True)
+    else:
+        gemini_param = request.form.get('use_gemini_postprocess', 'true').lower()
+        use_gemini_postprocess = gemini_param == 'true'
 
     # Validate file if provided
     if file and file.filename == '':
@@ -72,7 +79,8 @@ def validate_chord_recognition_request() -> Tuple[bool, Optional[str], Optional[
         'detector': detector,
         'chord_dict': chord_dict,
         'force': force,
-        'use_spleeter': use_spleeter,
+        'use_vocal_isolation': use_vocal_isolation,
+        'use_gemini_postprocess': use_gemini_postprocess,
         'audio_path': audio_path,
         'json_data': json_data
     }
@@ -101,7 +109,7 @@ def validate_firebase_chord_recognition_request() -> Tuple[bool, Optional[str], 
 
     # Validate detector parameter
     detector = request.form.get('detector', 'auto').lower()
-    valid_detectors = ['chord-cnn-lstm', 'btc-sl', 'btc-pl', 'auto']
+    valid_detectors = ['btc-sl', 'btc-pl', 'auto']
     if detector not in valid_detectors:
         return False, f"Invalid detector '{detector}'. Must be one of: {', '.join(valid_detectors)}", {}
 
@@ -181,20 +189,16 @@ def validate_file_size(file: FileStorage, detector: str, force: bool) -> Tuple[b
 
     # Size limits based on detector
     size_limits = {
-        'chord-cnn-lstm': 100,  # 100MB for Chord-CNN-LSTM
-        'btc-sl': 50,          # 50MB for BTC-SL
-        'btc-pl': 50,          # 50MB for BTC-PL
-        'auto': 50             # Conservative limit for auto selection
+        'btc-sl': 150,
+        'btc-pl': 150,
+        'auto': 150
     }
 
     # Check size limits unless force is enabled
     if not force:
-        limit = size_limits.get(detector, 50)
+        limit = size_limits.get(detector, 150)
         if file_size_mb > limit:
-            if detector == 'auto':
-                return False, f"File too large ({file_size_mb:.1f}MB > {limit}MB). Specify detector='chord-cnn-lstm' for larger files, or add 'force=true'."
-            else:
-                return False, f"File too large ({file_size_mb:.1f}MB > {limit}MB). Add 'force=true' to override size limits."
+            return False, f"File too large ({file_size_mb:.1f}MB > {limit}MB). Add 'force=true' to override size limits."
 
     return True, None
 
@@ -231,7 +235,7 @@ def validate_model_name(model_name: str) -> bool:
     Returns:
         bool: True if the model name is valid
     """
-    valid_models = ['chord-cnn-lstm', 'btc-sl', 'btc-pl']
+    valid_models = ['btc-sl', 'btc-pl']
     return model_name in valid_models
 
 
@@ -246,7 +250,6 @@ def get_detector_display_name(detector: str) -> str:
         str: Display name
     """
     display_names = {
-        'chord-cnn-lstm': 'Chord-CNN-LSTM',
         'btc-sl': 'BTC SL (Self-Label)',
         'btc-pl': 'BTC PL (Pseudo-Label)',
         'auto': 'Auto Selection'

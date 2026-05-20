@@ -159,20 +159,11 @@ function drawWaveform(
   }
 }
 
-function drawFilteredWaveform(
-  canvas: HTMLCanvasElement,
-  audioBuffer: AudioBuffer,
+function applyFilterChain(
+  offlineCtx: OfflineAudioContext,
+  source: AudioBufferSourceNode,
   stem: StemConfig,
-  color: string,
-  scaleY = 1,
-) {
-  // Apply filter offline for visualization
-  const offlineCtx = new OfflineAudioContext(
-    1, audioBuffer.length, audioBuffer.sampleRate
-  );
-  const source = offlineCtx.createBufferSource();
-  source.buffer = audioBuffer;
-
+): AudioNode {
   let lastNode: AudioNode = source;
 
   if (stem.filterType === 'bandpass') {
@@ -203,16 +194,77 @@ function drawFilteredWaveform(
   const gain = offlineCtx.createGain();
   gain.gain.value = stem.gain;
   lastNode.connect(gain);
-  gain.connect(offlineCtx.destination);
+  return gain;
+}
+
+/**
+ * Build a mono "mid" (center) channel buffer from stereo source.
+ * Vocals are usually panned center, so isolating mid improves separation.
+ */
+function buildMidChannelBuffer(audioBuffer: AudioBuffer): AudioBuffer {
+  if (audioBuffer.numberOfChannels === 1) return audioBuffer;
+  const ctx = new AudioContext();
+  const mid = ctx.createBuffer(1, audioBuffer.length, audioBuffer.sampleRate);
+  const l = audioBuffer.getChannelData(0);
+  const r = audioBuffer.getChannelData(1);
+  const out = mid.getChannelData(0);
+  for (let i = 0; i < audioBuffer.length; i++) {
+    out[i] = (l[i]! + r[i]!) * 0.5;
+  }
+  ctx.close().catch(() => {});
+  return mid;
+}
+
+function drawFilteredWaveform(
+  canvas: HTMLCanvasElement,
+  audioBuffer: AudioBuffer,
+  stem: StemConfig,
+  color: string,
+  scaleY = 1,
+) {
+  const numCh = stem.key === 'vocals' ? 1 : audioBuffer.numberOfChannels;
+  const srcBuf = stem.key === 'vocals' ? buildMidChannelBuffer(audioBuffer) : audioBuffer;
+
+  const offlineCtx = new OfflineAudioContext(
+    numCh, srcBuf.length, srcBuf.sampleRate
+  );
+  const source = offlineCtx.createBufferSource();
+  source.buffer = srcBuf;
+
+  const lastNode = applyFilterChain(offlineCtx, source, stem);
+  lastNode.connect(offlineCtx.destination);
 
   source.start(0);
 
   offlineCtx.startRendering().then((filteredBuffer) => {
     drawWaveform(canvas, filteredBuffer, color, scaleY);
   }).catch(() => {
-    // Fallback to raw waveform
     drawWaveform(canvas, audioBuffer, color, scaleY);
   });
+}
+
+/**
+ * Render a single stem to a downloadable AudioBuffer using OfflineAudioContext.
+ * For vocals, uses mid-side (center channel) extraction for better isolation.
+ */
+async function renderStemAudio(
+  audioBuffer: AudioBuffer,
+  stem: StemConfig,
+): Promise<AudioBuffer> {
+  const srcBuf = stem.key === 'vocals' ? buildMidChannelBuffer(audioBuffer) : audioBuffer;
+  const numCh = stem.key === 'vocals' ? 1 : audioBuffer.numberOfChannels;
+
+  const offlineCtx = new OfflineAudioContext(
+    numCh, srcBuf.length, srcBuf.sampleRate
+  );
+  const source = offlineCtx.createBufferSource();
+  source.buffer = srcBuf;
+
+  const lastNode = applyFilterChain(offlineCtx, source, stem);
+  lastNode.connect(offlineCtx.destination);
+
+  source.start(0);
+  return offlineCtx.startRendering();
 }
 
 // ============================================================
@@ -239,11 +291,7 @@ export default function StemSeparationPage() {
   const [loopEnd, setLoopEnd] = useState(0);
   const [isProcessing, setIsProcessing] = useState(false);
   const [fileName, setFileName] = useState('');
-  const [mode, setMode] = useState<'filter' | 'ai'>('filter');
-  const [aiStems, setAiStems] = useState<Record<string, { url: string; filename: string }>>({});
-  const [isAiProcessing, setIsAiProcessing] = useState(false);
-  const [aiModel, setAiModel] = useState<'2stems' | '4stems' | '5stems'>('2stems');
-  const [spleeterStatus, setSpleeterStatus] = useState<{ available: boolean; message: string } | null>(null);
+  const [renderingStem, setRenderingStem] = useState<string | null>(null);
 
   const audioCtxRef = useRef<AudioContext | null>(null);
   const sourceNodesRef = useRef<AudioBufferSourceNode[]>([]);
@@ -264,47 +312,37 @@ export default function StemSeparationPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const waveformContainerRef = useRef<HTMLDivElement>(null);
 
-  // Check Spleeter status on mount
-  useEffect(() => {
-    fetch('/api/stem/status')
-      .then(r => r.json())
-      .then(data => {
-        if (data.success) {
-          setSpleeterStatus({ available: data.available, message: data.message });
-        }
-      })
-      .catch(() => setSpleeterStatus({ available: false, message: 'Backend unreachable' }));
-  }, []);
-
-  // AI Separation function
-  const handleAiSeparate = useCallback(async () => {
-    if (!fileInputRef.current?.files?.[0]) return;
-    setIsAiProcessing(true);
-
+  // Download a single stem as WAV
+  const downloadStem = useCallback(async (stem: StemConfig) => {
+    if (!audioBuffer) return;
+    setRenderingStem(stem.key);
     try {
-      const formData = new FormData();
-      formData.append('audio_file', fileInputRef.current.files[0]);
-      formData.append('model', aiModel);
+      const rendered = await renderStemAudio(audioBuffer, stem);
+      const baseName = fileName.replace(/\.[^.]+$/, '') || 'track';
+      await downloadAudioBufferAsWav(rendered, `${baseName}_${stem.label.toLowerCase().replace(/\s+/g, '_')}.wav`);
+    } catch (e) {
+      console.error('Stem render failed:', e);
+    } finally {
+      setRenderingStem(null);
+    }
+  }, [audioBuffer, fileName]);
 
-      const res = await fetch('/api/stem/separate', {
-        method: 'POST',
-        body: formData,
-      });
-      const data = await res.json();
-
-      if (data.success && data.stems) {
-        setAiStems(data.stems);
-        setMode('ai');
-      } else {
-        alert(data.error || 'Separation failed');
+  // Download all stems
+  const downloadAllStems = useCallback(async () => {
+    if (!audioBuffer) return;
+    setRenderingStem('all');
+    try {
+      for (const stem of STEMS) {
+        const rendered = await renderStemAudio(audioBuffer, stem);
+        const baseName = fileName.replace(/\.[^.]+$/, '') || 'track';
+        await downloadAudioBufferAsWav(rendered, `${baseName}_${stem.label.toLowerCase().replace(/\s+/g, '_')}.wav`);
       }
     } catch (e) {
-      console.error('AI separation failed:', e);
-      alert('AI separation failed. Is the backend running?');
+      console.error('All stems render failed:', e);
     } finally {
-      setIsAiProcessing(false);
+      setRenderingStem(null);
     }
-  }, [aiModel]);
+  }, [audioBuffer, fileName]);
 
   // ============================================================
   // Audio Context Setup
@@ -798,9 +836,9 @@ export default function StemSeparationPage() {
             />
             <button
               onClick={() => fileInputRef.current?.click()}
-              disabled={isProcessing || isAiProcessing}
+              disabled={isProcessing || !!renderingStem}
               className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-1.5 ${
-                isProcessing || isAiProcessing
+                isProcessing || !!renderingStem
                   ? 'bg-cyan-300 dark:bg-cyan-800 text-white cursor-wait'
                   : 'bg-cyan-500 text-white hover:bg-cyan-600'
               }`}
@@ -818,51 +856,9 @@ export default function StemSeparationPage() {
               )}
             </button>
 
-            {/* AI Separation */}
-            {spleeterStatus?.available && hasAudio && (
-              <>
-                <div className="h-6 w-px bg-gray-300 dark:bg-gray-600" />
-                <select
-                  value={aiModel}
-                  onChange={(e) => setAiModel(e.target.value as '2stems' | '4stems' | '5stems')}
-                  className="px-2 py-1.5 text-xs rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200"
-                >
-                  <option value="2stems">2 Stems (Vocals/Inst)</option>
-                  <option value="4stems">4 Stems (Vocals/Drums/Bass/Other)</option>
-                  <option value="5stems">5 Stems (+ Piano)</option>
-                </select>
-                <button
-                  onClick={handleAiSeparate}
-                  disabled={isAiProcessing}
-                  className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-1.5 ${
-                    isAiProcessing
-                      ? 'bg-purple-300 dark:bg-purple-800 text-white cursor-wait'
-                      : 'bg-purple-600 text-white hover:bg-purple-500'
-                  }`}
-                >
-                  {isAiProcessing ? (
-                    <>
-                      <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                      </svg>
-                      AI Separating...
-                    </>
-                  ) : (
-                    <>🤖 AI Separate</>
-                  )}
-                </button>
-              </>
-            )}
-
             {fileName && (
               <span className="text-xs text-gray-500 dark:text-gray-400 truncate max-w-[150px]">
                 {fileName}
-              </span>
-            )}
-            {mode === 'ai' && (
-              <span className="px-2 py-0.5 text-[10px] rounded bg-purple-100 dark:bg-purple-900/30 border border-purple-300 dark:border-purple-700 text-purple-700 dark:text-purple-300">
-                🤖 AI Mode
               </span>
             )}
 
@@ -914,13 +910,29 @@ export default function StemSeparationPage() {
               />
             </div>
 
-            {/* Download */}
+            {/* Download Mix */}
             <button
               onClick={downloadMix}
-              disabled={!hasAudio}
+              disabled={!hasAudio || !!renderingStem}
               className="px-3 py-1.5 rounded-lg text-xs font-medium bg-cyan-100 dark:bg-cyan-900/30 text-cyan-700 dark:text-cyan-300 border border-cyan-300 dark:border-cyan-700 hover:bg-cyan-200 dark:hover:bg-cyan-900/50 transition-colors disabled:opacity-50"
             >
-              ⬇ Download Mix
+              ⬇ Mix
+            </button>
+
+            {/* Download All Stems */}
+            <button
+              onClick={downloadAllStems}
+              disabled={!hasAudio || !!renderingStem}
+              className="px-3 py-1.5 rounded-lg text-xs font-medium bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700 hover:bg-emerald-200 dark:hover:bg-emerald-900/50 transition-colors disabled:opacity-50 flex items-center gap-1"
+            >
+              {renderingStem === 'all' ? (
+                <svg className="animate-spin h-3 w-3" viewBox="0 0 24 24" fill="none">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                </svg>
+              ) : (
+                <>⬇ All Stems</>
+              )}
             </button>
           </div>
 
@@ -1074,21 +1086,22 @@ export default function StemSeparationPage() {
 
                       <div className="flex-1" />
 
-                      {/* AI Stem Download */}
-                      {mode === 'ai' && (() => {
-                        const aiStem = aiStems[stem.key];
-                        if (!aiStem?.url) return null;
-                        return (
-                          <a
-                            href={aiStem.url}
-                            download={aiStem.filename}
-                            className="px-2 py-0.5 text-[10px] rounded bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 transition-colors"
-                            title="Download stem"
-                          >
-                            ⬇
-                          </a>
-                        );
-                      })()}
+                      {/* Stem Download */}
+                      <button
+                        onClick={() => downloadStem(stem)}
+                        disabled={!!renderingStem}
+                        className="px-2 py-0.5 text-[10px] rounded bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 transition-colors disabled:opacity-40"
+                        title={`Download ${stem.label} stem`}
+                      >
+                        {renderingStem === stem.key ? (
+                          <svg className="animate-spin h-3 w-3 inline" viewBox="0 0 24 24" fill="none">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                          </svg>
+                        ) : (
+                          '⬇'
+                        )}
+                      </button>
 
                       {/* VU Meter */}
                       <VUMeter analyser={chain?.analyser} color={stem.color} />
@@ -1124,14 +1137,9 @@ export default function StemSeparationPage() {
                 Upload an Audio File
               </h3>
               <p className="text-sm text-gray-500 dark:text-gray-400 mb-2 max-w-md mx-auto">
-                Drop an MP3 or WAV file to separate it into 6 stems: Vocals, Drums, Bass, Piano, Guitar, and Other.
-                Uses Web Audio filters for browser-based pseudo-separation.
+                Drop an MP3 or WAV file to separate it into 6 downloadable stems: Vocals (mid-channel isolation), Drums, Bass, Piano, Guitar, and Other.
+                All processing happens instantly in your browser — no backend needed.
               </p>
-              {spleeterStatus?.available && (
-                <p className="text-xs text-purple-500 dark:text-purple-400 mb-4 max-w-md mx-auto">
-                  🤖 AI mode available! Upload then click "AI Separate" for real Spleeter-powered separation.
-                </p>
-              )}
               <button
                 onClick={() => fileInputRef.current?.click()}
                 className="px-5 py-2.5 rounded-lg text-sm font-medium bg-cyan-500 text-white hover:bg-cyan-600 transition-colors"

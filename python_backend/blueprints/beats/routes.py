@@ -46,7 +46,7 @@ def detect_beats():
     Parameters:
     - file: The audio file to analyze (multipart/form-data)
     - audio_path: Alternative to file, path to an existing audio file on the server
-    - detector: 'beat-transformer', 'madmom', 'librosa', or 'auto' (default)
+    - detector: 'allin1', 'librosa', or 'auto' (default)
     - force: Set to 'true' to force using requested detector even for large files
 
     Returns:
@@ -193,11 +193,9 @@ def model_info():
         # Format response to match existing API
         available_models = detector_info['available_detectors']
 
-        # Set default model: prefer Madmom by default, then Beat-Transformer, then Librosa
-        if 'madmom' in available_models:
-            default_model = 'madmom'
-        elif 'beat-transformer' in available_models:
-            default_model = 'beat-transformer'
+        # Set default model: prefer ALLIN1, then Librosa fallback
+        if 'allin1' in available_models:
+            default_model = 'allin1'
         elif 'librosa' in available_models:
             default_model = 'librosa'
         else:
@@ -207,26 +205,22 @@ def model_info():
             "success": True,
             "default_beat_model": default_model,
             "available_beat_models": available_models,
-            "beat_transformer_available": 'beat-transformer' in available_models,
-            "madmom_available": 'madmom' in available_models,
+            "allin1_available": 'allin1' in available_models,
             "librosa_available": 'librosa' in available_models,
+            # Legacy fields for backwards compatibility
+            "beat_transformer_available": False,
+            "madmom_available": False,
             "file_size_limits": {
                 "upload_limit_mb": 50,
-                "local_file_limit_mb": 100,
-                "beat_transformer_limit_mb": 100,
+                "local_file_limit_mb": 150,
+                "allin1_limit_mb": 150,
                 "force_parameter_available": True
             },
             "beat_model_info": {
-                "beat-transformer": {
-                    "name": "Beat-Transformer",
-                    "description": "DL model with 5-channel audio separation, flexible in time signatures, slow processing speed",
-                    "performance": "High accuracy, slower processing",
-                    "uses_spleeter": False
-                },
-                "madmom": {
-                    "name": "Madmom",
-                    "description": "Neural network with high accuracy and speed, best for common time signatures (3/4, 4/4)",
-                    "performance": "Medium accuracy, medium speed",
+                "allin1": {
+                    "name": "ALLIN1",
+                    "description": "Unified music structure analysis: beats, downbeats, BPM, time signature, and song sections in one pass",
+                    "performance": "High accuracy, medium speed",
                     "uses_spleeter": False
                 },
                 "librosa": {
@@ -249,88 +243,45 @@ def model_info():
         }), 500
 
 
-@beats_bp.route('/api/test-beat-transformer', methods=['GET'])
+@beats_bp.route('/api/test-allin1', methods=['GET'])
 @limiter.limit(config.get_rate_limit('test'))
-def test_beat_transformer():
-    """Test Beat-Transformer model availability"""
+def test_allin1():
+    """Test ALLIN1 beat detection model availability"""
     try:
-        # Get beat detection service
         beat_service = current_app.extensions['services']['beat_detection']
-        detector = beat_service.detectors['beat-transformer']
+        detector = beat_service.detectors['allin1']
 
         if detector.is_available():
-            # Try to get device info
             try:
-                device_info = detector.get_device_info()
+                model_info = detector.get_model_info()
                 return jsonify({
                     "success": True,
-                    "model": "Beat-Transformer",
+                    "model": "ALLIN1",
                     "status": "available",
-                    "device_info": device_info,
-                    "message": "Beat-Transformer model is ready for use"
+                    "device": model_info.get("device", "unknown"),
+                    "capabilities": model_info.get("capabilities", []),
+                    "message": "ALLIN1 model is ready for use"
                 })
             except Exception as e:
                 return jsonify({
                     "success": True,
-                    "model": "Beat-Transformer",
+                    "model": "ALLIN1",
                     "status": "available",
                     "device_error": str(e),
-                    "message": "Beat-Transformer model is available but device info failed"
+                    "message": "ALLIN1 model is available but info query failed"
                 })
         else:
             return jsonify({
                 "success": False,
-                "model": "Beat-Transformer",
+                "model": "ALLIN1",
                 "status": "unavailable",
-                "error": "Beat-Transformer model not available"
+                "error": "ALLIN1 model not available"
             }), 404
 
     except Exception as e:
         return jsonify({
             "success": False,
-            "model": "Beat-Transformer",
-            "status": "error",
-            "error": str(e),
-            "traceback": traceback.format_exc()
-        }), 500
-
-
-@beats_bp.route('/api/test-madmom', methods=['GET'])
-@limiter.limit(config.get_rate_limit('test'))
-def test_madmom():
-    """Test Madmom beat detection model availability"""
-    try:
-        # Get beat detection service
-        beat_service = current_app.extensions['services']['beat_detection']
-        detector = beat_service.detectors['madmom']
-
-        if detector.is_available():
-            # Try to import madmom to get version
-            try:
-                import madmom
-                version = getattr(madmom, '__version__', 'unknown')
-            except ImportError:
-                version = 'unknown'
-
-            return jsonify({
-                "success": True,
-                "model": "Madmom",
-                "status": "available",
-                "version": version,
-                "message": "Madmom beat detection model is ready for use"
-            })
-        else:
-            return jsonify({
-                "success": False,
-                "model": "Madmom",
-                "status": "unavailable",
-                "error": "Madmom not installed or not available"
-            }), 404
-
-    except Exception as e:
-        return jsonify({
-            "success": False,
-            "model": "Madmom",
+            "model": "ALLIN1",
             "status": "error",
             "error": str(e),
             "traceback": traceback.format_exc()
@@ -412,19 +363,14 @@ def test_all_models():
                 if is_available:
                     results["summary"]["available_count"] += 1
 
-                    # Add version info if possible
-                    if name == 'beat-transformer':
+                    # Add version / device info if possible
+                    if name == 'allin1':
                         try:
-                            device_info = detector.get_device_info()
-                            model_result["device_info"] = device_info
+                            model_info = detector.get_model_info()
+                            model_result["device"] = model_info.get("device", "unknown")
+                            model_result["capabilities"] = model_info.get("capabilities", [])
                         except Exception as e:
                             model_result["device_error"] = str(e)
-                    elif name == 'madmom':
-                        try:
-                            import madmom
-                            model_result["version"] = getattr(madmom, '__version__', 'unknown')
-                        except ImportError:
-                            pass
                     elif name == 'librosa':
                         try:
                             import librosa
@@ -461,57 +407,31 @@ def test_all_models():
 # Duplicate test_all_models function removed
 
 
-@beats_bp.route('/api/test-dbn-isolation', methods=['GET'])
+@beats_bp.route('/api/test-allin1-sections', methods=['GET'])
 @limiter.limit(config.get_rate_limit('test'))
-def test_dbn_isolation():
-    """Test DBN (Dynamic Bayesian Network) isolation for madmom"""
+def test_allin1_sections():
+    """Test ALLIN1 section segmentation capability"""
     try:
-        # Get beat detection service
         beat_service = current_app.extensions['services']['beat_detection']
-        madmom_detector = beat_service.detectors['madmom']
+        detector = beat_service.detectors['allin1']
 
-        if not madmom_detector.is_available():
+        if not detector.is_available():
             return jsonify({
                 "success": False,
-                "error": "Madmom not available for DBN testing"
+                "error": "ALLIN1 not available for section testing"
             }), 404
 
-        # Test DBN components
-        try:
-            from madmom.features.beats import DBNBeatTrackingProcessor
-            from madmom.features.downbeats import DBNDownBeatTrackingProcessor
-
-            # Test beat DBN
-            beat_dbn = DBNBeatTrackingProcessor(fps=100)
-
-            # Test downbeat DBN
-            downbeat_dbn = DBNDownBeatTrackingProcessor(fps=100)
-
-            return jsonify({
-                "success": True,
-                "message": "DBN components successfully isolated and tested",
-                "components": {
-                    "beat_dbn": "available",
-                    "downbeat_dbn": "available"
-                },
-                "dbn_config": {
-                    "fps": 100,
-                    "beat_tracker": "DBNBeatTrackingProcessor",
-                    "downbeat_tracker": "DBNDownBeatTrackingProcessor"
-                }
-            })
-
-        except ImportError as e:
-            return jsonify({
-                "success": False,
-                "error": f"Failed to import DBN components: {str(e)}"
-            }), 500
-
-        except Exception as e:
-            return jsonify({
-                "success": False,
-                "error": f"DBN initialization failed: {str(e)}"
-            }), 500
+        return jsonify({
+            "success": True,
+            "message": "ALLIN1 section segmentation is available",
+            "capabilities": [
+                "beat_detection",
+                "downbeat_detection",
+                "bpm_estimation",
+                "time_signature_inference",
+                "song_section_segmentation"
+            ]
+        })
 
     except Exception as e:
         return jsonify({

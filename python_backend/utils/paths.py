@@ -16,8 +16,6 @@ BACKEND_DIR = Path(__file__).parent.parent
 PROJECT_ROOT = BACKEND_DIR.parent
 
 # Model directories
-BEAT_TRANSFORMER_DIR = BACKEND_DIR / "models" / "Beat-Transformer"
-CHORD_CNN_LSTM_DIR = BACKEND_DIR / "models" / "Chord-CNN-LSTM"
 CHORDMINI_DIR = BACKEND_DIR / "models" / "ChordMini"
 
 # Chord model specific directories
@@ -28,9 +26,6 @@ BTC_PL_CHECKPOINTS_DIR = CHORDMINI_DIR / "checkpoints"
 
 # Audio directory
 AUDIO_DIR = PROJECT_ROOT / "public" / "audio"
-
-# Model checkpoint paths
-BEAT_TRANSFORMER_CHECKPOINT = BEAT_TRANSFORMER_DIR / "checkpoint" / "fold_4_trf_param.pt"
 
 # Chord model checkpoint paths
 BTC_SL_CONFIG_PATH = BTC_SL_CONFIG_DIR / "btc_model_large_voca_sl.yaml"
@@ -50,8 +45,6 @@ def setup_model_paths():
     to ensure model modules can be imported.
     """
     model_dirs = [
-        str(BEAT_TRANSFORMER_DIR),
-        str(CHORD_CNN_LSTM_DIR),
         str(CHORDMINI_DIR)
     ]
 
@@ -66,16 +59,12 @@ def get_model_checkpoint_path(model_name: str) -> Path:
     Get the checkpoint path for a specific model.
 
     Args:
-        model_name: Name of the model ('beat-transformer', 'chord-cnn-lstm', 'btc-sl', 'btc-pl')
+        model_name: Name of the model ('btc-sl', 'btc-pl')
 
     Returns:
         Path: Path to the model checkpoint
     """
-    if model_name == 'beat-transformer':
-        return BEAT_TRANSFORMER_CHECKPOINT
-    elif model_name == 'chord-cnn-lstm':
-        return CHORD_CNN_LSTM_DIR  # Directory contains the model
-    elif model_name == 'btc-sl':
+    if model_name == 'btc-sl':
         return BTC_SL_CHECKPOINT_PATH
     elif model_name == 'btc-pl':
         return BTC_PL_CHECKPOINT_PATH
@@ -139,20 +128,6 @@ def validate_model_paths() -> dict:
     """
     results = {}
 
-    # Check Beat Transformer
-    results['beat_transformer'] = {
-        'dir_exists': BEAT_TRANSFORMER_DIR.exists(),
-        'checkpoint_exists': BEAT_TRANSFORMER_CHECKPOINT.exists(),
-        'checkpoint_path': str(BEAT_TRANSFORMER_CHECKPOINT)
-    }
-
-    # Check Chord CNN LSTM
-    results['chord_cnn_lstm'] = {
-        'dir_exists': CHORD_CNN_LSTM_DIR.exists(),
-        'dir_path': str(CHORD_CNN_LSTM_DIR),
-        'required_files': ['chord_recognition.py']
-    }
-
     # Check ChordMini (BTC models)
     results['chordmini'] = {
         'dir_exists': CHORDMINI_DIR.exists(),
@@ -187,5 +162,4 @@ def validate_model_paths() -> dict:
 # Initialize paths on import (debug-only)
 if is_debug_enabled():
     log_debug(f"Audio directory path: {AUDIO_DIR}")
-    log_debug(f"Beat Transformer directory: {BEAT_TRANSFORMER_DIR}")
-    log_debug(f"Chord CNN LSTM directory: {CHORD_CNN_LSTM_DIR}")
+    log_debug(f"ChordMini directory: {CHORDMINI_DIR}")

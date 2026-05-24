@@ -285,7 +285,7 @@ function NewHomePageContentInner() {
                     </div>
                     <div className="p-3">
                       <h4 className="font-medium text-gray-800 dark:text-gray-100 mb-1 text-sm group-hover:text-cyan-600 dark:group-hover:text-cyan-400 transition-colors">Stem Separation Studio</h4>
-                      <p className="text-xs text-gray-600 dark:text-gray-300">StemDeck-inspired audio splitting — isolate vocals, drums, bass, piano & guitar</p>
+                      <p className="text-xs text-gray-600 dark:text-gray-300">HTDemucs (Meta AI) — isolate vocals, drums, bass, guitar & piano with Transformer AI</p>
                     </div>
                   </a>
                 </motion.div>

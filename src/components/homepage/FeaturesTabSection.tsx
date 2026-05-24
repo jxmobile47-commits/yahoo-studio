@@ -130,13 +130,13 @@ const TAB_CONTENT = {
   },
   'stem-separation': {
     title: 'Stem Separation Studio',
-    description: 'StemDeck-inspired audio splitting in the browser. Isolate vocals, drums, bass, piano, guitar and more using Web Audio filters.',
+    description: 'HTDemucs (Meta AI) audio source separation. Isolate vocals, drums, bass, guitar, piano and other with Transformer-based AI.',
     features: [
-      { text: '6-stem pseudo-separation via Web Audio API filters', color: 'cyan' },
+      { text: '6-stem separation: vocals, drums, bass, guitar, piano, other', color: 'cyan' },
+      { text: 'Powered by HTDemucs v4 — Transformer architecture like ChatGPT for audio', color: 'cyan' },
+      { text: 'Local Python backend + browser DSP fallback', color: 'cyan' },
       { text: 'DAW-style waveform editor with per-stem lanes', color: 'cyan' },
-      { text: 'Per-stem mixer: volume, mute, solo, and monitor', color: 'cyan' },
-      { text: 'Live VU meters and real-time playback mixing', color: 'cyan' },
-      { text: 'Download selected stems as a WAV mix file', color: 'cyan' },
+      { text: 'Download each stem as individual WAV file', color: 'cyan' },
     ],
   },
   'beat-maker': {

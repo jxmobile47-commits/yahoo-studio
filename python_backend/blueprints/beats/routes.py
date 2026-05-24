@@ -127,7 +127,7 @@ def detect_beats_firebase():
 
     Parameters:
     - firebase_url: Firebase Storage URL of the audio file
-    - detector: 'beat-transformer', 'madmom', 'librosa', or 'auto' (default)
+    - detector: 'allin1', 'librosa', or 'auto' (default)
 
     Returns:
     - JSON with beat and downbeat information

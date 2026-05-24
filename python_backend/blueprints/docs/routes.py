@@ -43,8 +43,8 @@ def api_docs_json():
                         "example": {
                             "status": "healthy",
                             "message": "Audio analysis API is running",
-                            "beat_model": "Beat-Transformer",
-                            "chord_model": "Chord-CNN-LSTM",
+                            "beat_model": "ALLIN1",
+                            "chord_model": "BTC / ChordNet-2026",
                             "genius_available": True
                         }
                     }
@@ -63,33 +63,26 @@ def api_docs_json():
                             "models": {
                                 "beat": [
                                     {
-                                        "id": "madmom",
-                                        "name": "Madmom",
-                                        "description": "Neural network with high accuracy and speed, best for common time signatures (3/4, 4/4)",
+                                        "id": "allin1",
+                                        "name": "ALLIN1",
+                                        "description": "Unified music structure analysis: beats, downbeats, BPM, time signature, and song sections in one pass",
                                         "default": True,
                                         "available": True
                                     },
                                     {
-                                        "id": "beat-transformer",
-                                        "name": "Beat-Transformer",
-                                        "description": "DL model with 5-channel audio separation, flexible in time signatures, slow processing speed",
+                                        "id": "librosa",
+                                        "name": "Librosa",
+                                        "description": "Classical signal processing approach",
                                         "default": False,
                                         "available": True
                                     }
                                 ],
                                 "chord": [
                                     {
-                                        "id": "chord-cnn-lstm",
-                                        "name": "Chord-CNN-LSTM",
-                                        "description": "Deep learning model for chord recognition",
-                                        "default": True,
-                                        "available": True
-                                    },
-                                    {
                                         "id": "btc-sl",
                                         "name": "BTC SL (Supervised Learning)",
                                         "description": "Transformer-based model with supervised learning",
-                                        "default": False,
+                                        "default": True,
                                         "available": True
                                     },
                                     {
@@ -119,8 +112,8 @@ def api_docs_json():
                     "model": {
                         "type": "string",
                         "required": False,
-                        "default": "beat-transformer",
-                        "options": ["beat-transformer", "madmom"],
+                        "default": "allin1",
+                        "options": ["allin1", "librosa", "auto"],
                         "description": "Beat detection model to use"
                     }
                 },
@@ -135,8 +128,8 @@ def api_docs_json():
                             "total_downbeats": 3,
                             "bpm": 120.0,
                             "time_signature": "4/4",
-                            "model_used": "beat-transformer",
-                            "model_name": "Beat-Transformer",
+                            "model_used": "allin1",
+                            "model_name": "ALLIN1",
                             "processing_time": 2.34,
                             "audio_duration": 4.5
                         }
@@ -152,8 +145,8 @@ def api_docs_json():
             {
                 "path": "/api/recognize-chords",
                 "method": "POST",
-                "summary": "Recognize chords in audio file (Chord-CNN-LSTM)",
-                "description": "Analyze an audio file to recognize chord progressions using the Chord-CNN-LSTM model",
+                "summary": "Recognize chords in audio file",
+                "description": "Analyze an audio file to recognize chord progressions using BTC or ChordNet-2026 models",
                 "parameters": {
                     "audio_file": {
                         "type": "file",
@@ -173,8 +166,8 @@ def api_docs_json():
                                 {"start": 6.0, "end": 8.0, "chord": "G", "confidence": 0.89}
                             ],
                             "total_chords": 4,
-                            "model_used": "chord-cnn-lstm",
-                            "model_name": "Chord-CNN-LSTM",
+                            "model_used": "btc-sl",
+                            "model_name": "BTC SL",
                             "chord_dict": "large_voca",
                             "processing_time": 3.21,
                             "audio_duration": 8.0

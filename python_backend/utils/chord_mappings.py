@@ -11,41 +11,9 @@ from utils.logging import log_debug
 
 # Chord dictionary definitions
 CHORD_DICTIONARIES = {
-    'full': {
-        'description': 'Full chord vocabulary with all extensions',
-        'size': 'Large (500+ chords)',
-        'models': ['chord-cnn-lstm'],
-        'extensions': True,
-        'inversions': True,
-        'complex_chords': True
-    },
-    'ismir2017': {
-        'description': 'ISMIR 2017 standard chord vocabulary',
-        'size': 'Medium (170 chords)',
-        'models': ['chord-cnn-lstm'],
-        'extensions': True,
-        'inversions': False,
-        'complex_chords': False
-    },
-    'submission': {
-        'description': 'Standard submission format for chord recognition',
-        'size': 'Medium (100-200 chords)',
-        'models': ['chord-cnn-lstm'],
-        'extensions': False,
-        'inversions': False,
-        'complex_chords': False
-    },
-    'extended': {
-        'description': 'Extended chord vocabulary with common extensions',
-        'size': 'Large (300+ chords)',
-        'models': ['chord-cnn-lstm'],
-        'extensions': True,
-        'inversions': True,
-        'complex_chords': False
-    },
     'large_voca': {
-        'description': 'Large vocabulary for transformer models (170 chords)',
-        'size': 'Large (170 chords)',
+        'description': 'Large vocabulary for BTC transformer models',
+        'size': 'Large (170+ chords)',
         'models': ['btc-sl', 'btc-pl'],
         'extensions': True,
         'inversions': True,
@@ -55,14 +23,12 @@ CHORD_DICTIONARIES = {
 
 # Model-specific chord dictionary mappings
 MODEL_CHORD_DICT_MAPPING = {
-    'chord-cnn-lstm': ['full', 'ismir2017', 'submission', 'extended'],
     'btc-sl': ['large_voca'],
     'btc-pl': ['large_voca']
 }
 
 # Default chord dictionaries for each model
 DEFAULT_CHORD_DICTS = {
-    'chord-cnn-lstm': 'submission',
     'btc-sl': 'large_voca',
     'btc-pl': 'large_voca'
 }

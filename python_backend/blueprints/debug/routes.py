@@ -14,7 +14,7 @@ from flask import Blueprint, request, jsonify, current_app
 from config import get_config
 from extensions import limiter
 from utils.logging import log_info, log_error, log_debug
-from utils.model_utils import check_btc_availability, check_chord_cnn_lstm_availability, get_all_model_availability
+from utils.model_utils import check_btc_availability, get_all_model_availability
 from .validators import (
     validate_debug_request, validate_model_test_request, validate_environment_debug_request,
     validate_file_debug_request, validate_btc_debug_request, format_debug_response,
@@ -39,7 +39,6 @@ def debug_files():
     try:
         files_to_check = [
             '/app/models/ChordMini/test_btc.py',
-            '/app/models/Chord-CNN-LSTM/data/train00.csv',
             '/app/models/ChordMini/config/btc_config.yaml',
             '/app/models/ChordMini/checkpoints/btc/btc_combined_best.pth'
         ]
@@ -220,140 +219,6 @@ def test_btc_import():
 
     except Exception as e:
         log_error(f"Error in test_btc_import endpoint: {e}")
-        return jsonify({
-            "error": str(e),
-            "traceback": traceback.format_exc()
-        }), 500
-
-
-@debug_bp.route('/api/test-chord-cnn-lstm', methods=['POST'])
-@limiter.limit(get_debug_rate_limit())
-def test_chord_cnn_lstm():
-    """Test Chord-CNN-LSTM model availability"""
-    is_valid, error_msg, params = validate_model_test_request()
-    if not is_valid:
-        return jsonify({"error": error_msg}), 404
-
-    try:
-        # Check if Chord-CNN-LSTM is available
-        available = check_chord_cnn_lstm_availability()
-
-        if available:
-            chord_cnn_lstm_dir = Path(__file__).parent.parent.parent / "models" / "Chord-CNN-LSTM"
-
-            # Try to import and test
-            original_dir = os.getcwd()
-            try:
-                sys.path.insert(0, str(chord_cnn_lstm_dir))
-                os.chdir(str(chord_cnn_lstm_dir))
-                from chord_recognition import chord_recognition
-
-                return jsonify(format_debug_response({
-                    "model": "Chord-CNN-LSTM",
-                    "status": "available",
-                    "model_dir": str(chord_cnn_lstm_dir),
-                    "message": "Chord-CNN-LSTM model is ready for use"
-                }, 'test_chord_cnn_lstm'))
-
-            finally:
-                os.chdir(original_dir)
-        else:
-            return jsonify(format_debug_response({
-                "model": "Chord-CNN-LSTM",
-                "status": "unavailable",
-                "message": "Chord-CNN-LSTM model is not available"
-            }, 'test_chord_cnn_lstm'))
-
-    except Exception as e:
-        log_error(f"Error in test_chord_cnn_lstm endpoint: {e}")
-        return jsonify({
-            "error": str(e),
-            "traceback": traceback.format_exc()
-        }), 500
-
-
-@debug_bp.route('/api/debug-chord-cnn-lstm', methods=['POST'])
-@limiter.limit(get_debug_rate_limit())
-def debug_chord_cnn_lstm():
-    """Debug Chord-CNN-LSTM model in detail"""
-    is_valid, error_msg, params = validate_model_test_request()
-    if not is_valid:
-        return jsonify({"error": error_msg}), 404
-
-    try:
-        debug_info = {
-            "model": "Chord-CNN-LSTM",
-            "timestamp": __import__('time').time()
-        }
-
-        original_dir = os.getcwd()
-        chord_cnn_lstm_dir = Path(__file__).parent.parent.parent / "models" / "Chord-CNN-LSTM"
-
-        debug_info["original_dir"] = original_dir
-        debug_info["chord_cnn_lstm_dir"] = str(chord_cnn_lstm_dir)
-        debug_info["dir_exists"] = chord_cnn_lstm_dir.exists()
-
-        # Check key files
-        key_files = ["chord_recognition.py", "mir/__init__.py", "mir/chord_recognition.py"]
-        debug_info["files"] = {}
-        for file in key_files:
-            file_path = chord_cnn_lstm_dir / file
-            debug_info["files"][file] = file_path.exists()
-
-        debug_info["sys_path_before"] = str(chord_cnn_lstm_dir) in sys.path
-        debug_info["working_dir_before"] = os.getcwd()
-
-        # Add to path and change directory
-        sys.path.insert(0, str(chord_cnn_lstm_dir))
-        os.chdir(str(chord_cnn_lstm_dir))
-
-        debug_info["working_dir_after"] = os.getcwd()
-        debug_info["sys_path_after"] = str(chord_cnn_lstm_dir) in sys.path
-
-        # Try importing
-        try:
-            import chord_recognition
-            debug_info["import_success"] = True
-            debug_info["module_file"] = getattr(chord_recognition, '__file__', 'unknown')
-
-            # Check if chord_recognition function exists
-            if hasattr(chord_recognition, 'chord_recognition'):
-                debug_info["function_exists"] = True
-            else:
-                debug_info["function_exists"] = False
-                debug_info["available_functions"] = [attr for attr in dir(chord_recognition)
-                                                   if not attr.startswith('_')]
-        except ImportError as e:
-            debug_info["import_success"] = False
-            debug_info["import_error"] = str(e)
-
-        # List actual files in mir directory
-        mir_dir = chord_cnn_lstm_dir / "mir"
-        if mir_dir.exists():
-            debug_info["mir_directory_contents"] = []
-            try:
-                for item in mir_dir.iterdir():
-                    debug_info["mir_directory_contents"].append({
-                        "name": item.name,
-                        "is_file": item.is_file(),
-                        "size": item.stat().st_size if item.is_file() else None
-                    })
-            except Exception as e:
-                debug_info["mir_directory_error"] = str(e)
-
-        # Restore original directory
-        os.chdir(original_dir)
-
-        return jsonify(format_debug_response(debug_info, 'debug_chord_cnn_lstm'))
-
-    except Exception as e:
-        # Make sure to restore directory even on error
-        try:
-            os.chdir(original_dir)
-        except:
-            pass
-
-        log_error(f"Error in debug_chord_cnn_lstm endpoint: {e}")
         return jsonify({
             "error": str(e),
             "traceback": traceback.format_exc()

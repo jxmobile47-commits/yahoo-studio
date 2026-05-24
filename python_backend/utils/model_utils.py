@@ -291,28 +291,6 @@ def get_model_directory_info(model_name):
         }
 
 
-def check_chord_cnn_lstm_availability():
-    """
-    Check if Chord-CNN-LSTM model is available.
-
-    Returns:
-        bool: True if Chord-CNN-LSTM model directory and files exist
-    """
-    try:
-        chord_cnn_lstm_dir = Path(__file__).parent.parent / "models" / "Chord-CNN-LSTM"
-        key_files = [
-            chord_cnn_lstm_dir / "chord_recognition.py",
-            chord_cnn_lstm_dir / "mir" / "__init__.py",
-            chord_cnn_lstm_dir / "mir" / "chord_recognition.py",
-        ]
-        available = chord_cnn_lstm_dir.exists() and all(f.exists() for f in key_files)
-        log_debug(f"Chord-CNN-LSTM availability: {available}")
-        return available
-    except Exception as e:
-        log_debug(f"Chord-CNN-LSTM not available: {e}")
-        return False
-
-
 def get_all_model_availability():
     """
     Get availability status for all models.

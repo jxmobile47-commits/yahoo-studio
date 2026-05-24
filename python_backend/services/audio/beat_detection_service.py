@@ -57,7 +57,7 @@ class BeatDetectionService:
         Select the best detector based on request, availability, and file size.
 
         Args:
-            requested_detector: Requested detector ('beat-transformer', 'madmom', 'librosa', 'auto')
+            requested_detector: Requested detector ('allin1', 'librosa', 'auto')
             file_size_mb: File size in megabytes
             force: Force use of requested detector even if file is large
 
@@ -76,7 +76,7 @@ class BeatDetectionService:
         log_debug(f"Requested: {requested_detector}, File size: {file_size_mb:.1f}MB, Force: {force}")
 
         # Handle specific detector requests
-        if requested_detector in ['beat-transformer', 'madmom', 'librosa']:
+        if requested_detector in ['allin1', 'librosa']:
             if requested_detector not in available_detectors:
                 log_error(f"{requested_detector} requested but not available")
                 # Fall back to best available option
@@ -154,7 +154,7 @@ class BeatDetectionService:
 
         Args:
             file_path: Path to the audio file
-            detector: Detector to use ('beat-transformer', 'madmom', 'librosa', 'auto')
+            detector: Detector to use ('allin1', 'librosa', 'auto')
             force: Force use of requested detector even if file is large
 
         Returns:

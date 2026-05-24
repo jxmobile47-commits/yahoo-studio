@@ -724,7 +724,7 @@ function VocalSynthMockup({ isDark, currentBeat }: { isDark: boolean; currentBea
 }
 
 // ============================================================
-// Mockup: Stem Separation (StemDeck-inspired)
+// Mockup: Stem Separation (HTDemucs)
 // ============================================================
 
 const STEM_COLORS = [

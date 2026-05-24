@@ -3,7 +3,7 @@
 import React from 'react';
 import { Tabs, Tab } from "@heroui/react";
 
-type TabKey = 'beatChordMap' | 'guitarChords' | 'pianoVisualizer' | 'lyricsChords';
+type TabKey = 'beatChordMap' | 'guitarChords' | 'pianoVisualizer' | 'lyricsChords' | 'liveChord';
 
 interface ResultsTabsProps {
   activeTab: TabKey;
@@ -60,6 +60,10 @@ const ResultsTabs: React.FC<ResultsTabsProps> = ({
         <Tab
           key="beatChordMap"
           title="Beat & Chord Map"
+        />
+        <Tab
+          key="liveChord"
+          title="Live Chord"
         />
         <Tab
           key="guitarChords"

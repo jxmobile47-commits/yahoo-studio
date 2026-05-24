@@ -6,7 +6,6 @@ Specifically, it fixes the collections.MutableSequence issue.
 """
 
 import sys
-from utils.logging import log_debug, is_debug_enabled
 
 
 def patch_madmom_compatibility():

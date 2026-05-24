@@ -61,7 +61,16 @@ demucs>=4.0.0
 basic-pitch
 
 # ============================================================================
-# 🎼 Chord Recognition — BTC-SL / BTC-PL dependencies
+# � Piano Transcription (optional — polyphonic piano-to-MIDI)
+# Primary: Bytedance High-resolution Piano Transcription
+# Fallback: Basic Pitch (already installed above) with piano thresholds
+# pip install piano-transcription-inference
+# https://github.com/BytedanceSpeech/piano_transcription_inference
+# ============================================================================
+# piano-transcription-inference
+
+# ============================================================================
+# �🎼 Chord Recognition — BTC-SL / BTC-PL dependencies
 # ============================================================================
 # torch already listed above
 

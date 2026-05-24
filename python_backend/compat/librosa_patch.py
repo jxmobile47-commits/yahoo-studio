@@ -8,7 +8,6 @@ versions of SciPy and NumPy, particularly around beat tracking functionality.
 import inspect
 import warnings
 import numpy as np
-from utils.logging import log_debug, is_debug_enabled
 
 
 def patch_librosa_beat_tracker():

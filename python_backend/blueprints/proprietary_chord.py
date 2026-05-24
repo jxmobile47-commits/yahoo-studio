@@ -15,7 +15,12 @@ import os
 # Add parent directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from models.proprietary_chord_model import ProprietaryChordNet
+try:
+    from models.proprietary_chord_model import ProprietaryChordNet
+    _PROPRIETARY_MODEL_AVAILABLE = True
+except ImportError:
+    ProprietaryChordNet = None
+    _PROPRIETARY_MODEL_AVAILABLE = False
 
 logger = logging.getLogger(__name__)
 
@@ -30,16 +35,19 @@ class ChordInferenceEngine:
     def __init__(self, model_path='models/proprietary_model.pt', device='cpu'):
         self.device = device
         self.model_path = model_path
+        self.model = None
 
-        # Load model
-        self.model = ProprietaryChordNet(num_chords=170)
-        if Path(model_path).exists():
-            self.model.load_state_dict(torch.load(model_path, map_location=device, weights_only=True))
-            self.model.to(device)
-            self.model.eval()
-            logger.info(f"Loaded proprietary model from {model_path}")
+        if not _PROPRIETARY_MODEL_AVAILABLE or ProprietaryChordNet is None:
+            logger.warning(f"ProprietaryChordNet not available — running in dummy mode")
         else:
-            logger.warning(f"Model not found at {model_path}, using uninitialized model")
+            self.model = ProprietaryChordNet(num_chords=170)
+            if Path(model_path).exists():
+                self.model.load_state_dict(torch.load(model_path, map_location=device, weights_only=True))
+                self.model.to(device)
+                self.model.eval()
+                logger.info(f"Loaded proprietary model from {model_path}")
+            else:
+                logger.warning(f"Model not found at {model_path}, using uninitialized model")
 
         # Load chord vocabulary
         if ChordInferenceEngine.CHORD_VOCAB is None:
@@ -82,6 +90,17 @@ class ChordInferenceEngine:
         Returns:
             dict: Chord recognition results
         """
+        if self.model is None:
+            return {
+                'segments': [],
+                'chords': [],
+                'confidence': [],
+                'duration': 0,
+                'model_type': 'proprietary',
+                'error': 'Model not loaded',
+                'hop_length': 512,
+                'sample_rate': 22050
+            }
         # Extract features
         features = self.extract_features(audio_path)  # (84, T)
 

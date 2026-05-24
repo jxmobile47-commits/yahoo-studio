@@ -60,13 +60,13 @@ class Config:
     }
 
     # Feature toggles - defer to runtime availability checks
-    USE_BEAT_TRANSFORMER = True
-    USE_CHORD_CNN_LSTM = True
-    USE_SPLEETER = True
+    USE_ALLIN1 = True
+    USE_DEMUCS = True
+    USE_BASIC_PITCH = True
+    USE_GEMINI = True
     USE_GENIUS = True
-    # DEPLOYMENT UPDATE: Disable BTC models for this deployment
-    USE_BTC_SL = False
-    USE_BTC_PL = False
+    USE_BTC_SL = True
+    USE_BTC_PL = True
 
     # External service timeouts (seconds)
     EXTERNAL_API_TIMEOUT = 30
@@ -74,7 +74,7 @@ class Config:
     AUDIO_EXTRACTION_TIMEOUT = 60
 
     # File size limits for different operations (MB)
-    BEAT_TRANSFORMER_SIZE_LIMIT_MB = 100
+    ALLIN1_SIZE_LIMIT_MB = 150
     DIRECT_UPLOAD_SIZE_LIMIT_MB = 50
 
     # Audio processing settings
@@ -82,8 +82,6 @@ class Config:
     SILENCE_TRIM_TOP_DB = 20
 
     # Model paths (relative to python_backend/)
-    BEAT_TRANSFORMER_DIR = "models/Beat-Transformer"
-    CHORD_CNN_LSTM_DIR = "models/Chord-CNN-LSTM"
     CHORDMINI_DIR = "models/ChordMini"
     AUDIO_DIR = "../public/audio"
 
@@ -174,7 +172,7 @@ class TestingConfig(Config):
     # Smaller file limits for faster tests
     MAX_CONTENT_LENGTH_MB = 10
     MAX_CONTENT_LENGTH = MAX_CONTENT_LENGTH_MB * 1024 * 1024
-    BEAT_TRANSFORMER_SIZE_LIMIT_MB = 5
+    ALLIN1_SIZE_LIMIT_MB = 10
     DIRECT_UPLOAD_SIZE_LIMIT_MB = 5
 
     # Shorter timeouts for tests

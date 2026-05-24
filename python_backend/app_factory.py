@@ -85,6 +85,7 @@ def register_blueprints(app: Flask, config) -> None:
     from blueprints.melodyne_api import melodyne_bp
     from blueprints.vocal_feedback_api import vocal_feedback_bp
     from blueprints.stem_api import stem_bp
+    from blueprints.transcription import transcription_bp
     from blueprints.debug import debug_bp
 
     # Register blueprints
@@ -99,6 +100,7 @@ def register_blueprints(app: Flask, config) -> None:
     app.register_blueprint(melodyne_bp)
     app.register_blueprint(vocal_feedback_bp)
     app.register_blueprint(stem_bp)
+    app.register_blueprint(transcription_bp)
 
     # Register debug blueprint only in non-production mode
     if not config.PRODUCTION_MODE:
@@ -181,6 +183,15 @@ def init_services(app: Flask, config) -> None:
     except Exception as e:
         log_info(f"Failed to initialize Demucs stem service: {e}")
         services['stem_separation'] = None
+
+    # Initialize piano transcription service (polyphonic)
+    try:
+        from services.audio.piano_transcription_service import PianoTranscriptionService
+        services['piano_transcription'] = PianoTranscriptionService()
+        log_info("Piano transcription service initialized")
+    except Exception as e:
+        log_info(f"Failed to initialize piano transcription service: {e}")
+        services['piano_transcription'] = None
 
     # Initialize proprietary chord model
     try:

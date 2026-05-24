@@ -17,7 +17,12 @@ import json
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from models.chordnet_2026 import ChordNet2026
+try:
+    from models.chordnet_2026 import ChordNet2026
+    _CHORDNET_MODEL_AVAILABLE = True
+except ImportError:
+    ChordNet2026 = None
+    _CHORDNET_MODEL_AVAILABLE = False
 
 logger = logging.getLogger(__name__)
 
@@ -48,6 +53,10 @@ class ChordNet2026Engine:
 
     def _load_model(self):
         """Load ChordNet-2026"""
+        if not _CHORDNET_MODEL_AVAILABLE or ChordNet2026 is None:
+            logger.warning("ChordNet2026 class not available — running in dummy mode")
+            return None
+
         model = ChordNet2026(
             num_chords=170,
             freq_bins=84,
@@ -89,6 +98,17 @@ class ChordNet2026Engine:
     def predict(self, audio_path, include_beats=False):
         """Full prediction pipeline"""
         features, sr, hop_length, audio = self.extract_features(audio_path)
+
+        if self.model is None:
+            return {
+                'segments': [],
+                'key': None,
+                'duration': len(audio) / sr,
+                'num_frames': 0,
+                'model_version': 'ChordNet-2026',
+                'model_loaded': False,
+                'error': 'Model not loaded',
+            }
 
         # Add dims: (1, 1, 84, T)
         features_t = torch.from_numpy(features).unsqueeze(0).unsqueeze(0).to(self.device)

@@ -721,11 +721,11 @@ const ChordGrid: React.FC<ChordGridProps> = React.memo(({
       {/* Beat highlighter side-effect component (no UI) */}
       <BeatHighlighter cellRefsMap={cellRefsMapRef} theme={theme} isLoopEnabled={isLoopEnabled} />
 
-      {/* Clean card container with minimal styling */}
-      <div className="overflow-hidden rounded-xl border border-stone-300 bg-stone-50/90 shadow-[0_18px_45px_-32px_rgba(15,23,42,0.18)] transition-colors duration-300 sm:rounded-2xl dark:border-gray-600 dark:bg-gray-800/50 dark:shadow-[0_18px_45px_-32px_rgba(15,23,42,0.75)]">
+      {/* Modern glassmorphism card container */}
+      <div className="overflow-hidden rounded-2xl border border-white/30 bg-white/80 shadow-[0_8px_32px_-8px_rgba(0,0,0,0.12)] backdrop-blur-xl transition-colors duration-300 dark:border-white/10 dark:bg-gray-900/60 dark:shadow-[0_8px_32px_-8px_rgba(0,0,0,0.5)]">
 
-        {/* Header section using extracted component */}
-        <div className="border-b border-stone-200/80 bg-stone-50/95 px-2.5 py-1.5 sm:px-3 sm:py-2 dark:border-white/10 dark:bg-gray-800/50">
+        {/* Header section with gradient background */}
+        <div className="border-b border-gray-200/60 bg-gradient-to-r from-gray-50/95 via-white/95 to-gray-50/95 px-3 py-2 sm:px-4 sm:py-3 dark:border-white/5 dark:from-gray-800/80 dark:via-gray-900/80 dark:to-gray-800/80">
           <ChordGridHeader
             timeSignature={timeSignature}
             keySignature={keySignature}
@@ -736,8 +736,8 @@ const ChordGrid: React.FC<ChordGridProps> = React.memo(({
           />
         </div>
 
-        {/* Clean grid area with minimal background */}
-        <div className="bg-gray-100/70 px-0 dark:bg-gray-800/45">
+        {/* Grid area with modern subtle background */}
+        <div className="bg-gradient-to-b from-gray-50/50 to-white/30 px-1 py-1 dark:from-gray-900/40 dark:to-gray-800/20">
           <div className="overflow-x-auto">
             {sectionBlocks ? (
               <div className="space-y-3">

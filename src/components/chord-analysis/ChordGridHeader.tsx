@@ -23,46 +23,53 @@ export const ChordGridHeader: React.FC<ChordGridHeaderProps> = ({
 }) => {
   return (
     <div className={`flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:justify-between ${className}`}>
-      {/* Left side - Title */}
+      {/* Left side - Title with digital aesthetic */}
       <div className="flex items-center gap-2 sm:gap-3">
-        {/* <div className="rounded-full border border-default-200/80 bg-default-100 px-3 py-1 transition-colors duration-300 dark:border-white/10 dark:bg-gray-800/50"> */}
-          <h3 className="m-0 text-base font-semibold text-gray-900 dark:text-gray-100 sm:text-lg">
+        <div className="flex items-center gap-2">
+          {/* Decorative accent bar */}
+          <div className="h-5 w-1 rounded-full bg-gradient-to-b from-cyan-400 to-blue-500 dark:from-cyan-300 dark:to-blue-400" />
+          <h3 className="m-0 text-base font-bold tracking-tight text-gray-900 dark:text-gray-100 sm:text-lg"
+              style={{ fontFamily: 'var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif' }}>
             Chord Progression
           </h3>
-        {/* </div> */}
+        </div>
       </div>
 
-      {/* Right side - Tags */}
+      {/* Right side - Modern gradient tags */}
       <div className="flex w-full flex-wrap items-center gap-1.5 sm:w-auto sm:justify-end sm:gap-2">
-        {/* Time signature tag */}
-        <div className="rounded-lg border border-blue-300/60 bg-blue-500/10 px-2 py-0.5 sm:px-3 sm:py-1 dark:border-blue-400/35 dark:bg-blue-800/40">
-          <span className="text-xs font-medium text-blue-800 dark:text-blue-50 sm:text-sm">
+        {/* Time signature tag - gradient pill */}
+        <div className="rounded-full border border-white/20 bg-gradient-to-r from-blue-500/90 to-cyan-500/90 px-3 py-1 shadow-sm shadow-blue-500/20 backdrop-blur-sm dark:border-white/10 dark:from-blue-600/80 dark:to-cyan-600/80 dark:shadow-blue-900/30">
+          <span className="text-xs font-semibold text-white tracking-wide sm:text-sm"
+                style={{ fontFamily: 'var(--font-geist-mono), ui-monospace, monospace' }}>
             Time: {timeSignature === 6 ? '6/8' : `${timeSignature}/4`}
           </span>
         </div>
 
-        {/* Key signature tag */}
+        {/* Key signature tag - gradient pill */}
         {keySignature && (
-          <div className="rounded-lg border border-green-300/60 bg-green-500/10 px-2 py-0.5 sm:px-3 sm:py-1 dark:border-green-400/35 dark:bg-green-800/40">
-            <span className="text-xs font-medium text-green-800 dark:text-green-50 sm:text-sm">
+          <div className="rounded-full border border-white/20 bg-gradient-to-r from-emerald-500/90 to-teal-500/90 px-3 py-1 shadow-sm shadow-emerald-500/20 backdrop-blur-sm dark:border-white/10 dark:from-emerald-600/80 dark:to-teal-600/80 dark:shadow-emerald-900/30">
+            <span className="text-xs font-semibold text-white tracking-wide sm:text-sm"
+                  style={{ fontFamily: 'var(--font-geist-mono), ui-monospace, monospace' }}>
               Key: {keySignature.replace(/b/g, '♭').replace(/#/g, '♯')}
             </span>
           </div>
         )}
 
-        {/* Key detection loading indicator */}
+        {/* Key detection loading indicator - animated pulse */}
         {isDetectingKey && (
-          <div className="rounded-lg border border-blue-300/55 bg-blue-500/12 px-2 py-0.5 sm:px-3 sm:py-1 dark:border-blue-300/35 dark:bg-blue-300/16">
-            <span className="text-xs font-medium text-blue-800 dark:text-white sm:text-sm">
+          <div className="rounded-full border border-white/20 bg-gradient-to-r from-violet-500/90 to-purple-500/90 px-3 py-1 shadow-sm shadow-violet-500/20 backdrop-blur-sm animate-pulse dark:border-white/10 dark:from-violet-600/80 dark:to-purple-600/80">
+            <span className="text-xs font-semibold text-white tracking-wide sm:text-sm"
+                  style={{ fontFamily: 'var(--font-geist-mono), ui-monospace, monospace' }}>
               Detecting key...
             </span>
           </div>
         )}
 
-        {/* Pickup beats indicator */}
+        {/* Pickup beats indicator - subtle gradient */}
         {hasPickupBeats && pickupBeatsCount > 0 && (
-          <div className="rounded-lg border border-blue-300/55 bg-blue-500/12 px-2 py-0.5 sm:px-3 sm:py-1 dark:border-blue-300/35 dark:bg-blue-300/16">
-            <span className="text-xs font-medium text-blue-800 dark:text-blue-900 sm:text-sm">
+          <div className="rounded-full border border-white/20 bg-gradient-to-r from-amber-500/90 to-orange-500/90 px-3 py-1 shadow-sm shadow-amber-500/20 backdrop-blur-sm dark:border-white/10 dark:from-amber-600/80 dark:to-orange-600/80 dark:shadow-amber-900/30">
+            <span className="text-xs font-semibold text-white tracking-wide sm:text-sm"
+                  style={{ fontFamily: 'var(--font-geist-mono), ui-monospace, monospace' }}>
               Pickup: {pickupBeatsCount} beat{pickupBeatsCount > 1 ? 's' : ''}
             </span>
           </div>

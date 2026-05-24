@@ -228,8 +228,8 @@ export const ChordCell = React.memo<ChordCellProps>(({
     : null;
   const chordLabel = (
     <div
-      // ✅ APPLY FONT: Use font-varela Tailwind class
-      className={`font-varela ${
+      // Modern digital font with letter-spacing
+      className={`font-varela tracking-wide ${
         showRomanNumerals
           ? getDynamicFontSize(cellSize * 0.7, renderedChord.length) // 30% smaller when Roman numerals shown
           : getDynamicFontSize(cellSize, renderedChord.length)
@@ -241,6 +241,8 @@ export const ChordCell = React.memo<ChordCellProps>(({
       style={{
         ...getChordLabelStyles(),
         fontSize: getGridLabelFontSize(renderedChord.length),
+        fontWeight: 700,
+        letterSpacing: '0.02em',
         width: labelOverflowWidth,
         maxWidth: labelOverflowWidth,
         minWidth: '100%',
@@ -249,6 +251,7 @@ export const ChordCell = React.memo<ChordCellProps>(({
         textOverflow: canOverflowLabel ? 'clip' : 'ellipsis',
         position: 'relative',
         zIndex: canOverflowLabel ? 2 : 1,
+        textShadow: isDarkMode ? '0 1px 2px rgba(0,0,0,0.3)' : 'none',
       }}
       onClick={isEditMode ? handleClick : undefined}
       dangerouslySetInnerHTML={{
@@ -309,20 +312,21 @@ export const ChordCell = React.memo<ChordCellProps>(({
                 </AppTooltip>
               ) : chordLabel}
 
-              {/* FIXED: Roman numeral display with stable layout */}
+              {/* Modern Roman numeral display with pill background */}
               {showRomanNumerals && romanNumeral && (
                 <AppTooltip content={`Roman numeral: ${typeof romanNumeral === 'string' ? romanNumeral : romanNumeral.toString()}`}>
                   <div
-                    className={`font-varela font-semibold leading-tight text-blue-700 dark:text-blue-300 mt-1 max-w-full`}
+                    className={`font-varela font-semibold leading-tight text-blue-700 dark:text-blue-200 mt-1 max-w-full rounded-full px-1.5 py-0.5 bg-blue-100/70 dark:bg-blue-900/40 border border-blue-200/50 dark:border-blue-700/40`}
                     style={{
-                      fontSize: `${Math.max(11, cellSize * 0.18)}px`,
-                      lineHeight: '1', // FIXED: Consistent line height to prevent layout shifts
-                      overflow: 'visible', // Allow superscripts to extend beyond container
-                      position: 'relative', // Ensure proper positioning context for absolute children
-                      minHeight: '1.4em', // FIXED: More space for superscripts to prevent jitter
+                      fontSize: `${Math.max(10, cellSize * 0.16)}px`,
+                      lineHeight: '1',
+                      overflow: 'visible',
+                      position: 'relative',
+                      minHeight: '1.3em',
                       display: 'flex',
                       alignItems: 'center',
-                      justifyContent: 'center'
+                      justifyContent: 'center',
+                      letterSpacing: '0.03em',
                     }}
                   >
                     {React.isValidElement(romanNumeral)

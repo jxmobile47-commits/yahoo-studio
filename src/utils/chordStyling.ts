@@ -89,7 +89,60 @@ export const getGridColumnsClass = (beatsPerMeasure: number): string => {
 };
 
 /**
+ * Chord type color mapping for modern visual distinction
+ */
+const CHORD_TYPE_COLORS: Record<string, { light: string; dark: string; textLight: string; textDark: string }> = {
+  major: {
+    light: 'bg-gradient-to-br from-amber-50 to-orange-50 border-amber-200',
+    dark: 'bg-gradient-to-br from-amber-950/40 to-orange-950/30 border-amber-700/50',
+    textLight: 'text-amber-900',
+    textDark: 'text-amber-100',
+  },
+  minor: {
+    light: 'bg-gradient-to-br from-blue-50 to-indigo-50 border-blue-200',
+    dark: 'bg-gradient-to-br from-blue-950/40 to-indigo-950/30 border-blue-700/50',
+    textLight: 'text-blue-900',
+    textDark: 'text-blue-100',
+  },
+  diminished: {
+    light: 'bg-gradient-to-br from-purple-50 to-fuchsia-50 border-purple-200',
+    dark: 'bg-gradient-to-br from-purple-950/40 to-fuchsia-950/30 border-purple-700/50',
+    textLight: 'text-purple-900',
+    textDark: 'text-purple-100',
+  },
+  augmented: {
+    light: 'bg-gradient-to-br from-rose-50 to-pink-50 border-rose-200',
+    dark: 'bg-gradient-to-br from-rose-950/40 to-pink-950/30 border-rose-700/50',
+    textLight: 'text-rose-900',
+    textDark: 'text-rose-100',
+  },
+  seventh: {
+    light: 'bg-gradient-to-br from-teal-50 to-cyan-50 border-teal-200',
+    dark: 'bg-gradient-to-br from-teal-950/40 to-cyan-950/30 border-teal-700/50',
+    textLight: 'text-teal-900',
+    textDark: 'text-teal-100',
+  },
+  default: {
+    light: 'bg-gradient-to-br from-white to-gray-50 border-gray-200',
+    dark: 'bg-gradient-to-br from-gray-800 to-gray-900 border-gray-600',
+    textLight: 'text-gray-800',
+    textDark: 'text-gray-100',
+  },
+};
+
+function getChordType(chord: string): string {
+  if (!chord || chord === '') return 'default';
+  const lower = chord.toLowerCase();
+  if (lower.includes('dim') || lower.includes('°')) return 'diminished';
+  if (lower.includes('aug') || lower.includes('+')) return 'augmented';
+  if (lower.includes('7') || lower.includes('9') || lower.includes('maj7') || lower.includes('m7')) return 'seventh';
+  if (lower.startsWith('m') && !lower.startsWith('maj')) return 'minor';
+  return 'major';
+}
+
+/**
  * Generates chord cell styling classes
+ * Modern: gradients, color-coded by chord type, rounded corners, subtle shadows
  */
 export const getChordStyle = (
   chord: string,
@@ -100,10 +153,9 @@ export const getChordStyle = (
   pickupBeatsCount: number,
   alignmentPaddingBeatCount: number = 0
 ): string => {
-  // Clean base classes with minimal styling
-  // CRITICAL: relative positioning required for absolute positioned beat number overlay
-  const baseClasses = `relative flex flex-col items-start justify-center aspect-square transition-colors duration-150 border border-gray-300 dark:border-gray-600 rounded-sm overflow-hidden ${
-    isClickable ? 'cursor-pointer hover:border-gray-400 dark:hover:border-gray-500' : ''
+  // Modern base classes with rounded corners and smooth transitions
+  const baseClasses = `relative flex flex-col items-start justify-center aspect-square transition-all duration-200 border rounded-md overflow-hidden ${
+    isClickable ? 'cursor-pointer' : ''
   }`;
 
   // Determine cell type
@@ -111,47 +163,30 @@ export const getChordStyle = (
   const isAlignmentPaddingBeat = isEmpty && beatIndex < alignmentPaddingBeatCount;
   const isPickupBeat = hasPickupBeats && beatIndex < timeSignature && beatIndex >= (timeSignature - pickupBeatsCount);
 
-  // Clean default styling
   let classes = `${baseClasses}`;
   let textColor = "text-gray-800 dark:text-gray-100";
 
-  // Default colors
-  classes += " bg-white dark:bg-content-bg";
-
-  // Subtle hover effects for clickable cells
-  if (isClickable) {
-    classes += " hover:bg-gray-50 dark:hover:bg-gray-700";
-  }
-
-  // Ensure outline doesn't get clipped by parent overflow-hidden when highlighted
-  classes += " outline-0 outline-offset-0";
-
   // Alignment-only leading padding beats should visually disappear into the grid
   if (isAlignmentPaddingBeat) {
-    classes = `${baseClasses} alignment-padding-cell bg-gray-100 dark:bg-gray-700 border-transparent dark:border-transparent`;
-    textColor = "text-gray-600 dark:text-gray-300";
-
-    if (isClickable) {
-      classes += " hover:bg-gray-150 dark:hover:bg-gray-650 hover:border-transparent dark:hover:border-transparent";
-    }
+    classes = `${baseClasses} alignment-padding-cell bg-gray-100/80 dark:bg-gray-800/60 border-transparent dark:border-transparent`;
+    textColor = "text-gray-500 dark:text-gray-400";
   }
-  // Clean empty cell styling with solid colors
+  // Modern empty cell styling with subtle depth
   else if (isEmpty) {
-    classes = `${baseClasses} bg-gray-100 dark:bg-gray-700 border-gray-200 dark:border-gray-600`;
-    textColor = "text-gray-600 dark:text-gray-300";
-
-    if (isClickable) {
-      classes += " hover:bg-gray-150 dark:hover:bg-gray-650";
-    }
+    classes = `${baseClasses} bg-gray-100/60 dark:bg-gray-800/50 border-gray-200/70 dark:border-gray-700/50`;
+    textColor = "text-gray-500 dark:text-gray-400";
   }
-  // Clean pickup beat styling with solid colors
+  // Modern pickup beat styling with accent glow
   else if (isPickupBeat) {
-    classes = `${baseClasses} bg-blue-50 dark:bg-blue-900 border-blue-200 dark:border-blue-700`;
-    textColor = "text-blue-800 dark:text-blue-100";
-
-    if (isClickable) {
-      classes += " hover:bg-blue-100 dark:hover:bg-blue-800";
-    }
+    classes = `${baseClasses} bg-gradient-to-br from-sky-50 to-blue-100 dark:from-sky-950/30 dark:to-blue-900/20 border-sky-300 dark:border-sky-600/50`;
+    textColor = "text-sky-800 dark:text-sky-100";
+  }
+  // Color-coded chord cells based on chord type
+  else {
+    const chordType = getChordType(chord);
+    const colors = CHORD_TYPE_COLORS[chordType] ?? CHORD_TYPE_COLORS.default;
+    classes = `${baseClasses} ${colors!.light} dark:${colors!.dark}`;
+    textColor = `${colors!.textLight} dark:${colors!.textDark}`;
   }
 
   // NOTE: Current beat highlighting is handled purely via CSS class 'current-beat-highlight'
@@ -212,10 +247,10 @@ export const generateMagentaStyleVariations = (
 
   // --- Variation 1: Simple substitution with extensions ---
   const substitutionVariation: string[] = currentProgression.map((chord, i) => {
-    const base = normalizedBase[i];
+    const base = normalizedBase[i]!;
     const subs = SUBSTITUTION_MAP[base] || [chord];
     // Deterministic but varied: use index + length to pick
-    return subs[(i + subs.length) % subs.length];
+    return subs[(i + subs.length) % subs.length]!;
   });
   results.push({
     progression: substitutionVariation,
@@ -225,24 +260,24 @@ export const generateMagentaStyleVariations = (
 
   // --- Variation 2: Markov-chain next-chord walk ---
   if (currentProgression.length >= 2) {
-    const markovWalk: string[] = [currentProgression[0]];
+    const markovWalk: string[] = [currentProgression[0]!];
     for (let i = 1; i < currentProgression.length; i++) {
-      const prevBase = normalizedBase[i - 1];
+      const prevBase = normalizedBase[i - 1]!;
       const transitions = MAGENTA_TRANSITION_MAP[prevBase];
       if (transitions) {
-        const candidates = Object.entries(transitions);
+        const candidates: [string, number][] = Object.entries(transitions);
         // Weighted random selection (simplified)
-        const weights = candidates.map(([, w]) => w);
+        const weights: number[] = candidates.map(([, w]) => w);
         const totalWeight = weights.reduce((a, b) => a + b, 0);
         let r = Math.random() * totalWeight;
-        let chosen = candidates[0][0];
+        let chosen = candidates[0]![0];
         for (let j = 0; j < candidates.length; j++) {
-          r -= weights[j];
-          if (r <= 0) { chosen = candidates[j][0]; break; }
+          r -= weights[j]!;
+          if (r <= 0) { chosen = candidates[j]![0]; break; }
         }
         markovWalk.push(chosen);
       } else {
-        markovWalk.push(currentProgression[i]);
+        markovWalk.push(currentProgression[i]!);
       }
     }
     results.push({
@@ -254,9 +289,9 @@ export const generateMagentaStyleVariations = (
 
   // --- Variation 3: Retrograde + substitution (MusicVAE latent-space mirror) ---
   const reversed = [...currentProgression].reverse().map((chord, i) => {
-    const base = normalizedBase[currentProgression.length - 1 - i];
+    const base = normalizedBase[currentProgression.length - 1 - i]!;
     const subs = SUBSTITUTION_MAP[base] || [chord];
-    return subs[i % subs.length];
+    return subs[i % subs.length]!;
   });
   results.push({
     progression: reversed,

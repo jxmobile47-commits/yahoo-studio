@@ -15,7 +15,6 @@ from .numpy_patch import patch_numpy_compatibility
 from .scipy_patch import apply_scipy_patches
 from .madmom_patch import patch_madmom_compatibility
 from .librosa_patch import patch_librosa_beat_tracker, monkey_patch_beat_track
-from utils.logging import log_debug, is_debug_enabled
 
 
 def apply_all():
@@ -31,6 +30,3 @@ def apply_all():
     apply_scipy_patches()
     patch_librosa_beat_tracker()
     monkey_patch_beat_track()
-
-    if is_debug_enabled():
-        log_debug("All compatibility patches applied successfully")

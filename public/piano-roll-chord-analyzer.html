@@ -1,0 +1,1571 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Piano Roll & Chord Analyzer</title>
+  <style>
+    :root {
+      --bg: #1a1f2e;
+      --bg-panel: #242b3d;
+      --bg-panel-light: #2e3650;
+      --border: #3a4566;
+      --border-gold: #FFD700;
+      --border-gold-dim: #b8a030;
+      --text: #e8eaf0;
+      --text-muted: #8892a8;
+      --note-green: #90EE90;
+      --note-green-dark: #5cb85c;
+      --accent-cyan: #4ecdc4;
+      --accent-blue: #5d8bf4;
+      --red: #ff6b6b;
+      --white-key: #d4d8e0;
+      --black-key: #1e2535;
+      --playhead: #ff4757;
+      --chord-major: #4A90D9;
+      --chord-minor: #9B59B6;
+      --chord-dom7: #E67E22;
+      --chord-maj7: #3498DB;
+      --chord-dim: #E74C3C;
+      --chord-aug: #F1C40F;
+      --chord-sus: #2ECC71;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; overflow: hidden; }
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, monospace;
+      background: var(--bg); color: var(--text);
+    }
+
+    /* ===== TOP BAR ===== */
+    .top-bar {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 10px 20px;
+      background: linear-gradient(135deg, var(--bg-panel) 0%, #1e2435 100%);
+      border-bottom: 1px solid var(--border);
+      gap: 16px; flex-shrink: 0;
+    }
+    .top-bar-left { display: flex; align-items: center; gap: 16px; }
+    .app-title {
+      font-size: 18px; font-weight: 700; letter-spacing: 0.5px;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .app-title::before {
+      content: ''; display: inline-block; width: 8px; height: 8px;
+      border-radius: 50%; background: var(--accent-cyan); box-shadow: 0 0 8px var(--accent-cyan);
+    }
+    .upload-section { display: flex; align-items: center; gap: 10px; }
+    .upload-btn {
+      padding: 6px 16px; border-radius: 6px; font-size: 12px; font-weight: 600;
+      border: 1px solid var(--border); background: var(--bg-panel-light); color: var(--text);
+      cursor: pointer; transition: all 0.15s ease; display: flex; align-items: center; gap: 6px;
+    }
+    .upload-btn:hover { background: var(--border); transform: translateY(-1px); }
+    .upload-btn.primary-upload {
+      background: linear-gradient(135deg, var(--accent-blue), #3b6de8);
+      border-color: transparent; color: white;
+      box-shadow: 0 2px 10px rgba(93, 139, 244, 0.3);
+    }
+    .upload-btn.primary-upload:hover { box-shadow: 0 4px 16px rgba(93, 139, 244, 0.4); }
+    .upload-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+    .file-info {
+      font-size: 11px; color: var(--text-muted); font-weight: 500;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .file-info .filename { color: var(--accent-cyan); font-weight: 600; }
+    .badges { display: flex; gap: 10px; }
+    .badge {
+      padding: 5px 14px; border-radius: 20px; font-size: 12px; font-weight: 600;
+      letter-spacing: 0.5px; border: 1px solid rgba(255,255,255,0.1);
+      background: linear-gradient(135deg, var(--accent-blue), #3b6de8); color: white;
+      box-shadow: 0 2px 8px rgba(93, 139, 244, 0.25);
+    }
+    .badge.gold {
+      background: linear-gradient(135deg, #d4a830, #b8941f);
+      box-shadow: 0 2px 8px rgba(212, 168, 48, 0.25);
+    }
+
+    /* ===== SCAN PROGRESS ===== */
+    .scan-overlay {
+      position: fixed; inset: 0; background: rgba(26,31,46,0.85);
+      display: none; align-items: center; justify-content: center;
+      z-index: 1000; backdrop-filter: blur(4px);
+    }
+    .scan-overlay.active { display: flex; }
+    .scan-box {
+      background: var(--bg-panel); border: 1px solid var(--border);
+      border-radius: 12px; padding: 28px 36px; min-width: 320px;
+      text-align: center; box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+    }
+    .scan-box h3 { font-size: 16px; margin-bottom: 16px; color: var(--text); }
+    .scan-box .scan-chord { font-size: 14px; color: var(--accent-cyan); margin-bottom: 12px; min-height: 20px; }
+    .progress-bar {
+      width: 100%; height: 8px; background: var(--bg); border-radius: 4px; overflow: hidden;
+    }
+    .progress-fill {
+      height: 100%; width: 0%; background: linear-gradient(90deg, var(--accent-blue), var(--accent-cyan));
+      border-radius: 4px; transition: width 0.2s ease;
+    }
+    .scan-box .progress-text { font-size: 11px; color: var(--text-muted); margin-top: 10px; }
+
+    /* ===== MAIN LAYOUT ===== */
+    .main-layout { display: flex; flex: 1; height: calc(100vh - 50px); overflow: hidden; }
+
+    /* ===== PIANO ROLL (LEFT) ===== */
+    .piano-roll-panel {
+      width: 55%; min-width: 400px; display: flex; flex-direction: column;
+      border-right: 1px solid var(--border); background: var(--bg);
+    }
+    .panel-header {
+      padding: 10px 16px; font-size: 13px; font-weight: 600; color: var(--text-muted);
+      text-transform: uppercase; letter-spacing: 1px; border-bottom: 1px solid var(--border);
+      display: flex; justify-content: space-between; align-items: center;
+    }
+    .quantize-selector { display: flex; align-items: center; gap: 6px; }
+    .quantize-selector label { font-size: 11px; text-transform: none; letter-spacing: 0; }
+    .quantize-selector select {
+      background: var(--bg-panel); color: var(--text); border: 1px solid var(--border);
+      border-radius: 4px; padding: 3px 8px; font-size: 11px; outline: none; cursor: pointer;
+    }
+    .piano-roll-area { flex: 1; display: flex; overflow: hidden; position: relative; }
+    .keys-column { width: 60px; flex-shrink: 0; border-right: 1px solid var(--border); overflow: hidden; position: relative; }
+    .key {
+      height: 28px; display: flex; align-items: center; justify-content: flex-end;
+      padding-right: 8px; font-size: 11px; font-weight: 600; border-bottom: 1px solid var(--border);
+      cursor: default; user-select: none;
+    }
+    .key.white { background: var(--white-key); color: #1a1f2e; }
+    .key.black { background: var(--black-key); color: var(--text-muted); }
+    .grid-column { flex: 1; position: relative; overflow: auto; }
+    .grid-canvas { position: relative; min-width: 100%; height: 100%; }
+    .grid-lines { position: absolute; inset: 0; pointer-events: none; }
+    .beat-line { position: absolute; top: 0; bottom: 0; width: 1px; background: rgba(255,255,255,0.06); }
+    .bar-line { background: rgba(255,255,255,0.18); width: 1.5px; }
+    .row-line { position: absolute; left: 0; right: 0; height: 1px; background: rgba(255,255,255,0.05); }
+    .note-block {
+      position: absolute; background: linear-gradient(180deg, var(--note-green), var(--note-green-dark));
+      border: 1px solid #7fdd7f; border-radius: 3px; cursor: grab;
+      box-shadow: 0 2px 6px rgba(144, 238, 144, 0.25), inset 0 1px rgba(255,255,255,0.3);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 10px; font-weight: 700; color: #1a3a1a; overflow: hidden;
+      transition: box-shadow 0.15s ease;
+    }
+    .note-block:hover { box-shadow: 0 0 12px rgba(144, 238, 144, 0.5), inset 0 1px rgba(255,255,255,0.3); z-index: 10; }
+    .note-block.dragging { cursor: grabbing; opacity: 0.85; z-index: 100; }
+    .note-block .resize-handle { position: absolute; right: 0; top: 0; bottom: 0; width: 8px; cursor: ew-resize; }
+    .playhead {
+      position: absolute; top: 0; bottom: 0; width: 2px; background: var(--playhead);
+      box-shadow: 0 0 10px var(--playhead), 0 0 20px rgba(255, 71, 87, 0.5);
+      z-index: 50; pointer-events: none; transition: left 0.05s linear;
+    }
+
+    /* ===== CHORD GRID (RIGHT) ===== */
+    .chord-grid-panel {
+      width: 45%; min-width: 350px; display: flex; flex-direction: column; background: var(--bg);
+    }
+    .chord-grid-container { flex: 1; padding: 12px 16px; overflow-y: auto; }
+    .chord-grid { display: grid; grid-template-columns: repeat(8, 1fr); gap: 6px; }
+    .chord-cell {
+      aspect-ratio: 1; border: 1.5px solid var(--border-gold); border-radius: 6px;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      cursor: pointer; background: linear-gradient(135deg, rgba(255,215,0,0.05), rgba(255,215,0,0.02));
+      transition: all 0.15s ease; position: relative; min-height: 52px;
+    }
+    .chord-cell:hover {
+      background: linear-gradient(135deg, rgba(255,215,0,0.15), rgba(255,215,0,0.08));
+      box-shadow: 0 0 16px rgba(255, 215, 0, 0.2); transform: translateY(-2px); border-color: #ffe44d;
+    }
+    .chord-cell.active {
+      background: linear-gradient(135deg, rgba(255,215,0,0.25), rgba(255,215,0,0.12));
+      box-shadow: 0 0 20px rgba(255, 215, 0, 0.35), inset 0 0 8px rgba(255, 215, 0, 0.1);
+      border-color: #ffe44d;
+    }
+    .chord-cell.playing {
+      box-shadow: 0 0 24px rgba(255, 215, 0, 0.6), inset 0 0 12px rgba(255, 215, 0, 0.2);
+      transform: scale(1.06); z-index: 10;
+    }
+    .chord-cell .chord-name { font-size: 15px; font-weight: 700; color: var(--text); text-shadow: 0 1px 3px rgba(0,0,0,0.4); }
+    .chord-cell .roman { font-size: 10px; color: var(--text-muted); margin-top: 2px; font-weight: 500; }
+    .chord-cell.empty { border-color: var(--border); background: rgba(255,255,255,0.02); }
+    .chord-cell.empty:hover { background: rgba(255,255,255,0.05); box-shadow: none; transform: none; border-color: var(--border-gold-dim); }
+
+    /* Chord type colors */
+    .chord-cell.chord-major { border-color: var(--chord-major); background: linear-gradient(135deg, rgba(74,144,217,0.15), rgba(74,144,217,0.05)); }
+    .chord-cell.chord-major:hover { box-shadow: 0 0 16px rgba(74,144,217,0.3); border-color: #6aa8e8; }
+    .chord-cell.chord-minor { border-color: var(--chord-minor); background: linear-gradient(135deg, rgba(155,89,182,0.15), rgba(155,89,182,0.05)); }
+    .chord-cell.chord-minor:hover { box-shadow: 0 0 16px rgba(155,89,182,0.3); border-color: #b07bc9; }
+    .chord-cell.chord-dom7 { border-color: var(--chord-dom7); background: linear-gradient(135deg, rgba(230,126,34,0.15), rgba(230,126,34,0.05)); }
+    .chord-cell.chord-dom7:hover { box-shadow: 0 0 16px rgba(230,126,34,0.3); border-color: #ed9748; }
+    .chord-cell.chord-maj7 { border-color: var(--chord-maj7); background: linear-gradient(135deg, rgba(52,152,219,0.15), rgba(52,152,219,0.05)); }
+    .chord-cell.chord-maj7:hover { box-shadow: 0 0 16px rgba(52,152,219,0.3); border-color: #5dade2; }
+    .chord-cell.chord-dim { border-color: var(--chord-dim); background: linear-gradient(135deg, rgba(231,76,60,0.15), rgba(231,76,60,0.05)); }
+    .chord-cell.chord-dim:hover { box-shadow: 0 0 16px rgba(231,76,60,0.3); border-color: #ec7063; }
+    .chord-cell.chord-aug { border-color: var(--chord-aug); background: linear-gradient(135deg, rgba(241,196,15,0.15), rgba(241,196,15,0.05)); }
+    .chord-cell.chord-aug:hover { box-shadow: 0 0 16px rgba(241,196,15,0.3); border-color: #f4d03f; }
+    .chord-cell.chord-sus { border-color: var(--chord-sus); background: linear-gradient(135deg, rgba(46,204,113,0.15), rgba(46,204,113,0.05)); }
+    .chord-cell.chord-sus:hover { box-shadow: 0 0 16px rgba(46,204,113,0.3); border-color: #58d68d; }
+
+    /* Bar row label */
+    .bar-row-label {
+      grid-column: 1 / -1; font-size: 10px; color: var(--text-muted); font-weight: 600;
+      padding: 4px 0 2px; text-align: left; border-bottom: 1px solid var(--border);
+      margin-bottom: 2px;
+    }
+
+    /* ===== DETECTION PANEL ===== */
+    .detection-panel {
+      padding: 16px 18px; border-top: 1px solid var(--border); background: var(--bg-panel); flex-shrink: 0;
+    }
+    .detection-title { font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1.2px; margin-bottom: 12px; }
+    .live-chord-card {
+      display: flex; flex-direction: column; gap: 14px;
+      padding: 18px 22px; border-radius: 20px;
+      background: rgba(10, 16, 32, 0.94);
+      border: 1px solid rgba(148, 163, 184, 0.16);
+      box-shadow: 0 20px 50px rgba(8, 14, 28, 0.55);
+    }
+    .chord-top-row { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+    .live-status {
+      display: inline-flex; align-items: center; gap: 6px; flex-shrink: 0;
+      font-size: 10px; font-weight: 700; letter-spacing: 0.32em;
+      text-transform: uppercase; padding: 4px 12px;
+      border-radius: 999px; transition: all 0.25s ease;
+    }
+    .live-status-dot {
+      width: 9px; height: 9px; border-radius: 999px; background: currentColor;
+      box-shadow: 0 0 0 2px rgba(255,255,255,0.08);
+    }
+    .live-status.ready { background: rgba(100,116,139,0.22); color: #cbd5e8; border: 1px solid rgba(148,163,184,0.25); }
+    .live-status.live  { background: rgba(244, 63, 94,0.22); color: #fecdd3; border: 1px solid rgba(244,63,94,0.28); }
+    .live-status.live .live-status-dot { animation: livePulse 1.4s ease-in-out infinite; }
+    @keyframes livePulse {
+      0%,100% { transform: scale(0.9); opacity: 0.75; }
+      50%      { transform: scale(1.4); opacity: 1; }
+    }
+    .live-chord-core { display: flex; align-items: baseline; gap: 10px; }
+    .detected-root {
+      font-size: 52px; font-weight: 900; color: var(--accent-cyan); line-height: 1; letter-spacing: -0.02em;
+      text-shadow: 0 0 18px rgba(78,205,196,0.6), 0 0 40px rgba(78,205,196,0.25);
+    }
+    .detected-type { font-size: 17px; font-weight: 600; color: rgba(226,232,240,0.8); text-transform: uppercase; letter-spacing: 0.28em; }
+    .beat-index { margin-left: auto; font-size: 10px; font-weight: 700; letter-spacing: 0.34em; text-transform: uppercase; color: rgba(148,163,184,0.65); }
+    .detected-notes-text {
+      font-size: 13px; font-weight: 600; letter-spacing: 0.32em;
+      color: rgba(129,213,190,0.9); text-transform: uppercase;
+    }
+    .detected-notes-text.empty { opacity: 0.3; }
+    /* Mini piano */
+    .mini-piano-wrap {
+      background: rgba(15,23,42,0.7); border-radius: 12px;
+      padding: 10px 14px; overflow-x: auto;
+    }
+    #miniPiano svg { display: block; }
+    /* Note pills */
+    .note-pills { display: flex; flex-wrap: wrap; gap: 7px; min-height: 0; }
+    .note-pill {
+      padding: 3px 13px; border-radius: 999px;
+      background: rgba(6,182,212,0.15); color: #67e8f9;
+      font-size: 11px; font-weight: 700; letter-spacing: 0.16em;
+      border: 1px solid rgba(6,182,212,0.28);
+    }
+
+    /* ===== BOTTOM CONTROLS ===== */
+    .bottom-controls {
+      display: flex; align-items: center; justify-content: center; gap: 16px;
+      padding: 12px 20px; border-top: 1px solid var(--border); background: var(--bg-panel); flex-shrink: 0;
+    }
+    .control-btn {
+      padding: 8px 20px; border-radius: 8px; font-size: 13px; font-weight: 600;
+      border: 1px solid var(--border); background: var(--bg-panel-light); color: var(--text);
+      cursor: pointer; transition: all 0.15s ease; display: flex; align-items: center; gap: 6px;
+    }
+    .control-btn:hover { background: var(--border); transform: translateY(-1px); }
+    .control-btn.primary { background: linear-gradient(135deg, var(--accent-blue), #3b6de8); border-color: transparent; color: white; box-shadow: 0 2px 10px rgba(93, 139, 244, 0.3); }
+    .control-btn.primary:hover { box-shadow: 0 4px 16px rgba(93, 139, 244, 0.4); }
+    .control-btn.danger { background: linear-gradient(135deg, var(--red), #ee5a5a); border-color: transparent; color: white; }
+    .bpm-display { font-size: 13px; font-weight: 600; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+    .time-display { font-size: 13px; font-weight: 600; color: var(--text); font-variant-numeric: tabular-nums; min-width: 100px; text-align: center; }
+    .time-display .current { color: var(--accent-cyan); }
+    .time-display .total { color: var(--text-muted); }
+
+    /* ===== RESPONSIVE ===== */
+    @media (max-width: 900px) {
+      .main-layout { flex-direction: column; }
+      .piano-roll-panel, .chord-grid-panel { width: 100%; height: 50%; }
+      .piano-roll-panel { border-right: none; border-bottom: 1px solid var(--border); }
+    }
+    .main-layout { display: none !important; }
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: var(--bg); }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+    .measure-labels { display: flex; height: 22px; border-bottom: 1px solid var(--border); background: var(--bg-panel); align-items: center; padding-left: 60px; }
+    .measure-label { font-size: 10px; color: var(--text-muted); font-weight: 600; text-align: center; user-select: none; }
+  </style>
+</head>
+<body>
+  <!-- TOP BAR -->
+  <div class="top-bar">
+    <div class="top-bar-left">
+      <div class="app-title">AI Chord Detection</div>
+      <div class="upload-section">
+        <input type="file" id="audioFile" accept=".mp3,.wav,.ogg,.m4a" style="display:none">
+        <button class="upload-btn primary-upload" id="uploadBtn" onclick="document.getElementById('audioFile').click()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16h6v-6h4l-7-7-7 7h4v6zm-4 2h14v2H5v-2z"/></svg>
+          Upload Song
+        </button>
+        <span class="file-info" id="fileInfo"></span>
+        <button class="upload-btn" id="scanBtn" disabled>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
+          Scan Chords
+        </button>
+      </div>
+    </div>
+    <div class="badges">
+      <div class="badge">Time: 4/4</div>
+      <div class="badge gold" id="keyBadge">Key: B♭ major</div>
+    </div>
+  </div>
+
+  <!-- SCAN OVERLAY -->
+  <div class="scan-overlay" id="scanOverlay">
+    <div class="scan-box">
+      <h3>Analyzing Audio...</h3>
+      <div class="scan-chord" id="scanChord">Detecting frequencies</div>
+      <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+      <div class="progress-text" id="progressText">0%</div>
+    </div>
+  </div>
+
+  <!-- MAIN LAYOUT -->
+  <div class="main-layout">
+    <!-- PIANO ROLL (LEFT) -->
+    <div class="piano-roll-panel">
+      <div class="panel-header">
+        <span>Piano Roll</span>
+        <div class="quantize-selector">
+          <label>Quantize:</label>
+          <select id="quantize">
+            <option value="4">1/4</option>
+            <option value="8" selected>1/8</option>
+            <option value="16">1/16</option>
+            <option value="32">1/32</option>
+            <option value="64">1/64</option>
+          </select>
+        </div>
+      </div>
+      <div class="measure-labels" id="measureLabels"></div>
+      <div class="piano-roll-area" id="pianoRollArea">
+        <div class="keys-column" id="keysColumn"><div id="keysWrapper"></div></div>
+        <div class="grid-column" id="gridColumn">
+          <div class="grid-canvas" id="gridCanvas">
+            <div class="grid-lines" id="gridLines"></div>
+            <div class="playhead" id="playhead" style="left: 0; display: none;"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CHORD GRID (RIGHT) -->
+    <div class="chord-grid-panel">
+      <div class="panel-header">
+        <span>Chord Progression</span>
+        <span id="gridModeLabel" style="font-size:10px;color:var(--text-muted);text-transform:none;letter-spacing:0;">Demo</span>
+      </div>
+      <div class="chord-grid-container">
+        <div class="chord-grid" id="chordGrid"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- DETECTION PANEL -->
+  <div class="detection-panel">
+    <div class="detection-title">AI Chord Detection</div>
+    <div class="live-chord-card">
+      <!-- row 1: status · root · type · beat -->
+      <div class="chord-top-row">
+        <span class="live-status ready" id="liveStatus">
+          <span class="live-status-dot"></span>
+          <span id="liveStatusLabel">Ready</span>
+        </span>
+        <div class="live-chord-core">
+          <span class="detected-root" id="detectedRoot">—</span>
+          <span class="detected-type" id="detectedType"></span>
+        </div>
+        <div class="beat-index" id="beatIndex">Beat —</div>
+      </div>
+      <!-- row 2: note names -->
+      <div class="detected-notes-text empty" id="detectedNotesText">—</div>
+      <!-- row 3: mini piano keyboard -->
+      <div class="mini-piano-wrap">
+        <div id="miniPiano"></div>
+      </div>
+      <!-- row 4: note pills -->
+      <div class="note-pills" id="notePills"></div>
+    </div>
+  </div>
+
+  <!-- BOTTOM CONTROLS -->
+  <div class="bottom-controls">
+    <button class="control-btn primary" id="playBtn">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+      <span id="playLabel">Play</span>
+    </button>
+    <button class="control-btn" id="stopBtn">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M6 6h12v12H6z"/></svg>
+      Stop
+    </button>
+    <div class="time-display" id="timeDisplay">
+      <span class="current">00:00</span><span class="total"> / 00:00</span>
+    </div>
+    <div class="bpm-display">BPM: <span id="bpm">120</span></div>
+    <button class="control-btn danger" id="clearBtn">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+      Clear
+    </button>
+  </div>
+
+  <!-- Hidden audio element for playback -->
+  <audio id="audioPlayer" style="display:none"></audio>
+
+  <script>
+  // ==========================
+  // CONFIG
+  // ==========================
+  const NOTES = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+  const NOTE_PC = { 'C':0,'C#':1,'D':2,'D#':3,'E':4,'F':5,'F#':6,'G':7,'G#':8,'A':9,'A#':10,'B':11 };
+  const SOLFEGE = { 'C':'Do','C#':'Do#','D':'Re','D#':'Re#','E':'Mi','F':'Fa','F#':'Fa#','G':'Sol','G#':'Sol#','A':'La','A#':'La#','B':'Si' };
+  const ROW_NOTES = [
+    'B10','A#10','A10','G#10','G10','F#10','F10','E10','D#10','D10','C#10','C10',
+    'B9','A#9','A9','G#9','G9','F#9','F9','E9','D#9','D9','C#9','C9',
+    'B8','A#8','A8','G#8','G8','F#8','F8','E8','D#8','D8','C#8','C8',
+    'B7','A#7','A7','G#7','G7','F#7','F7','E7','D#7','D7','C#7','C7',
+    'B6','A#6','A6','G#6','G6','F#6','F6','E6','D#6','D6','C#6','C6',
+    'B5','A#5','A5','G#5','G5','F#5','F5','E5','D#5','D5','C#5','C5',
+    'B4','A#4','A4','G#4','G4','F#4','F4','E4','D#4','D4','C#4','C4',
+    'B3','A#3','A3','G#3','G3','F#3','F3','E3','D#3','D3','C#3','C3',
+    'B2','A#2','A2','G#2','G2','F#2','F2','E2','D#2','D2','C#2','C2',
+    'B1','A#1','A1','G#1','G1','F#1','F1','E1','D#1','D1','C#1','C1',
+    'B0','A#0','A0','G#0','G0','F#0','F0','E0','D#0','D0','C#0','C0'
+  ];
+  const BEAT_WIDTH = 60;
+  const ROW_HEIGHT = 28;
+  const BLACK_KEYS = new Set(['C#','D#','F#','G#','A#']);
+  const TOTAL_BARS = 8;
+  const BEATS_PER_BAR = 4;
+  const DETECTION_STEP_SECONDS = 1;
+
+  const CHORD_TEMPLATES = [
+    { name: 'Major 7',     abbr: 'maj7',  intervals: [0,4,7,11],    type: 'maj7'  },
+    { name: 'Dominant 7',  abbr: '7',     intervals: [0,4,7,10],    type: 'dom7'  },
+    { name: 'Minor 7',     abbr: 'm7',    intervals: [0,3,7,10],    type: 'min7'  },
+    { name: 'Dim 7',       abbr: 'dim7',  intervals: [0,3,6,9],     type: 'dim'   },
+    { name: 'Half-Dim 7',  abbr: 'm7b5',  intervals: [0,3,6,10],    type: 'dim'   },
+    { name: 'Min/Maj 7',   abbr: 'mM7',   intervals: [0,3,7,11],    type: 'min7'  },
+    { name: 'Aug Maj 7',   abbr: 'augM7', intervals: [0,4,8,11],    type: 'aug'   },
+    { name: 'Major 9',     abbr: 'maj9',  intervals: [0,4,7,11,14], type: 'maj7'  },
+    { name: 'Dominant 9',  abbr: '9',     intervals: [0,4,7,10,14], type: 'dom7'  },
+    { name: 'Minor 9',     abbr: 'm9',    intervals: [0,3,7,10,14], type: 'min7'  },
+    { name: 'Add 9',       abbr: 'add9',  intervals: [0,4,7,14],    type: 'major' },
+    { name: 'Major 6',     abbr: '6',     intervals: [0,4,7,9],     type: 'major' },
+    { name: 'Minor 6',     abbr: 'm6',    intervals: [0,3,7,9],     type: 'minor' },
+    { name: 'Sus4',        abbr: 'sus4',  intervals: [0,5,7],       type: 'sus'   },
+    { name: 'Sus2',        abbr: 'sus2',  intervals: [0,2,7],       type: 'sus'   },
+    { name: 'Augmented',   abbr: 'aug',   intervals: [0,4,8],       type: 'aug'   },
+    { name: 'Diminished',  abbr: 'dim',   intervals: [0,3,6],       type: 'dim'   },
+    { name: 'Minor',       abbr: 'm',     intervals: [0,3,7],       type: 'minor' },
+    { name: 'Major',       abbr: '',      intervals: [0,4,7],       type: 'major' },
+  ];
+
+  const CHORD_TYPE_CLASS = {
+    'major': 'chord-major',
+    'minor': 'chord-minor',
+    'dom7': 'chord-dom7',
+    'maj7': 'chord-maj7',
+    'min7': 'chord-minor',
+    'dim': 'chord-dim',
+    'aug': 'chord-aug',
+    'sus': 'chord-sus',
+  };
+
+  const ROMAN_MAP = {
+    'Gm':'ii','Bb':'IV','Eb':'I','F':'V','Dm':'vi','Cm':'iii','D':'V/V','C':'bVII',
+    'Am':'vi','Em':'iii','G':'I','A':'II','E':'VI'
+  };
+
+  // ==========================
+  // STATE
+  // ==========================
+  let notes = [];
+  let nextId = 1;
+  let isPlaying = false;
+  let playheadPos = 0;
+  let playInterval = null;
+  let bpm = 120;
+  let quantize = 8;
+  let audioCtx = null;
+  let dragState = null;
+
+  // Audio file state
+  let audioBuffer = null;
+  let audioFileName = '';
+  let detectedChords = [];
+  let detectedChordTimeline = [];
+  let isAudioMode = false;
+  let chordUpdateInterval = null;
+  let lastDisplayedBar = -1;
+  let lastDisplayedStep = -1;
+
+  // Static demo progression
+  const DEMO_PROGRESSION = [
+    'Gm','','','','Bb','','','',
+    'Eb','','','','F','','','',
+    'Dm','','','','','','','',
+    'Cm','','','','Gm','','','',
+    'Bb','','','','Eb','','','',
+    'F','','','','','','','',
+    'Gm','','','','Dm','','','',
+    'Bb','','Cm','','D','','','',
+  ];
+
+  // ==========================
+  // FFT IMPLEMENTATION
+  // ==========================
+  function nextPow2(n) { return 1 << (32 - Math.clz32(n - 1)); }
+
+  function fft(real, imag) {
+    const n = real.length;
+    if (n & (n - 1)) throw new Error('FFT length must be power of 2');
+    for (let i = 0, j = 0; i < n; i++) {
+      if (i < j) { [real[i], real[j]] = [real[j], real[i]]; [imag[i], imag[j]] = [imag[j], imag[i]]; }
+      for (let bit = n >> 1; j & bit; bit >>= 1) j &= ~bit;
+      j |= bit;
+    }
+    for (let len = 2; len <= n; len <<= 1) {
+      const ang = -2 * Math.PI / len;
+      const wlen_re = Math.cos(ang), wlen_im = Math.sin(ang);
+      for (let i = 0; i < n; i += len) {
+        let w_re = 1, w_im = 0;
+        for (let j = 0; j < (len >> 1); j++) {
+          const u_re = real[i + j], u_im = imag[i + j];
+          const v_re = real[i + j + (len >> 1)] * w_re - imag[i + j + (len >> 1)] * w_im;
+          const v_im = real[i + j + (len >> 1)] * w_im + imag[i + j + (len >> 1)] * w_re;
+          real[i + j] = u_re + v_re; imag[i + j] = u_im + v_im;
+          real[i + j + (len >> 1)] = u_re - v_re; imag[i + j + (len >> 1)] = u_im - v_im;
+          const nw_re = w_re * wlen_re - w_im * wlen_im;
+          w_im = w_re * wlen_im + w_im * wlen_re; w_re = nw_re;
+        }
+      }
+    }
+  }
+
+  function getSpectrum(signal, sampleRate) {
+    const N = nextPow2(signal.length);
+    const real = new Float64Array(N);
+    const imag = new Float64Array(N);
+    for (let i = 0; i < signal.length; i++) real[i] = signal[i];
+    // Hann window
+    for (let i = 0; i < signal.length; i++) {
+      real[i] *= 0.5 * (1 - Math.cos(2 * Math.PI * i / (signal.length - 1)));
+    }
+    fft(real, imag);
+    const mag = new Float64Array(N >> 1);
+    for (let i = 0; i < (N >> 1); i++) mag[i] = Math.sqrt(real[i] * real[i] + imag[i] * imag[i]);
+    return { mag, binFreq: sampleRate / N };
+  }
+
+  function freqToNoteName(freq) {
+    const midi = 69 + 12 * Math.log2(freq / 440);
+    const noteNames = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+    const rounded = Math.round(midi);
+    const noteIdx = ((rounded % 12) + 12) % 12;
+    const octave = Math.floor(rounded / 12) - 1;
+    return noteNames[noteIdx] + octave;
+  }
+
+  function detectNotesFromChunk(chunk, sampleRate) {
+    const { mag, binFreq } = getSpectrum(chunk, sampleRate);
+    // Find peaks
+    const peaks = [];
+    for (let i = 2; i < mag.length - 1; i++) {
+      const freq = i * binFreq;
+      if (freq < 50 || freq > 4000) continue;
+      if (mag[i] > mag[i - 1] && mag[i] > mag[i + 1] && mag[i] > 0.01) {
+        const alpha = mag[i - 1], beta = mag[i], gamma = mag[i + 1];
+        const p = 0.5 * (alpha - gamma) / (alpha - 2 * beta + gamma);
+        const peakFreq = (i + p) * binFreq;
+        peaks.push({ freq: peakFreq, mag: beta });
+      }
+    }
+    peaks.sort((a, b) => b.mag - a.mag);
+    // Extract unique note names (ignoring octave)
+    const noteNames = [];
+    const seen = new Set();
+    for (const peak of peaks.slice(0, 8)) {
+      const noteName = freqToNoteName(peak.freq);
+      const base = noteName.replace(/\d/g, '');
+      if (!seen.has(base)) { seen.add(base); noteNames.push(noteName); }
+    }
+    return noteNames;
+  }
+
+  function noteToPitchClass(noteName) {
+    return NOTE_PC[noteName.replace(/\d/g, '')] ?? 0;
+  }
+
+  function matchChord(noteNames) {
+    if (noteNames.length < 2) return null;
+    const pcs = [...new Set(noteNames.map(noteToPitchClass))];
+    let bestChord = null, bestType = null, bestScore = 0;
+    for (let root = 0; root < 12; root++) {
+      for (const tmpl of CHORD_TEMPLATES) {
+        const expected = tmpl.intervals.map(i => (root + i) % 12);
+        let matchCount = 0;
+        for (const pc of pcs) if (expected.includes(pc)) matchCount++;
+        let extraCount = 0;
+        for (const pc of pcs) if (!expected.includes(pc)) extraCount++;
+        const score = (matchCount - extraCount * 0.3) / Math.max(expected.length, pcs.length);
+        if (score > bestScore && score > 0.5) {
+          bestScore = score;
+          const rootName = NOTES[root];
+          bestChord = rootName + tmpl.abbr;
+          bestType = tmpl.type;
+        }
+      }
+    }
+    return bestChord ? { chord: bestChord, type: bestType, score: bestScore } : null;
+  }
+
+  function getChordNotes(chordName) {
+    const rootMatch = chordName.match(/^([A-G]#?)/);
+    if (!rootMatch) return [];
+    const root = rootMatch[1];
+    const rootIdx = NOTES.indexOf(root);
+    let intervals = [0, 4, 7];
+    if (chordName.includes('m7')) intervals = [0, 3, 7, 10];
+    else if (chordName.includes('maj7')) intervals = [0, 4, 7, 11];
+    else if (chordName.includes('7') && !chordName.includes('maj')) intervals = [0, 4, 7, 10];
+    else if (chordName.includes('dim')) intervals = [0, 3, 6];
+    else if (chordName.includes('aug')) intervals = [0, 4, 8];
+    else if (chordName.includes('sus2')) intervals = [0, 2, 7];
+    else if (chordName.includes('sus4')) intervals = [0, 5, 7];
+    else if (chordName.includes('m')) intervals = [0, 3, 7];
+    return intervals.map(iv => {
+      const noteIdx = (rootIdx + iv) % 12;
+      const octave = 4 + Math.floor((rootIdx + iv) / 12);
+      return NOTES[noteIdx] + octave;
+    });
+  }
+
+  function detectKey(chords) {
+    const noteCounts = {};
+    chords.forEach(c => {
+      if (!c) return;
+      const root = c.chord ? c.chord.match(/^([A-G]#?)/)?.[1] : c.match(/^([A-G]#?)/)?.[1];
+      if (root) noteCounts[root] = (noteCounts[root] || 0) + 1;
+    });
+    const keys = ['C','G','D','A','E','B','F#','Gb','Db','Ab','Eb','Bb','F'];
+    const majorScales = {
+      'C': ['C','D','E','F','G','A','B'],
+      'G': ['G','A','B','C','D','E','F#'],
+      'D': ['D','E','F#','G','A','B','C#'],
+      'A': ['A','B','C#','D','E','F#','G#'],
+      'E': ['E','F#','G#','A','B','C#','D#'],
+      'B': ['B','C#','D#','E','F#','G#','A#'],
+      'F#': ['F#','G#','A#','B','C#','D#','E#'],
+      'Gb': ['Gb','Ab','Bb','Cb','Db','Eb','F'],
+      'Db': ['Db','Eb','F','Gb','Ab','Bb','C'],
+      'Ab': ['Ab','Bb','C','Db','Eb','F','G'],
+      'Eb': ['Eb','F','G','Ab','Bb','C','D'],
+      'Bb': ['Bb','C','D','Eb','F','G','A'],
+      'F': ['F','G','A','Bb','C','D','E'],
+    };
+    let bestKey = 'C', bestScore = 0;
+    keys.forEach(key => {
+      const scale = majorScales[key];
+      let score = 0;
+      Object.entries(noteCounts).forEach(([note, count]) => {
+        if (scale.includes(note)) score += count;
+      });
+      if (score > bestScore) { bestScore = score; bestKey = key; }
+    });
+    return bestKey + ' major';
+  }
+
+  // ==========================
+  // BACKEND API INTEGRATION
+  // ==========================
+
+  const FLAT_TO_SHARP = { Bb:'A#', Eb:'D#', Ab:'G#', Db:'C#', Gb:'F#', Cb:'B', Fb:'E' };
+  const QUALITY_MAP = {
+    maj:'', min:'m', '7':'7', maj7:'maj7', min7:'m7', dom7:'7',
+    dim:'dim', dim7:'dim7', aug:'aug', sus2:'sus2', sus4:'sus4',
+    maj9:'maj9', min9:'m9', '9':'9', hdim7:'m7b5', 'min/maj7':'mM7',
+    minmaj7:'mM7', '6':'6', min6:'m6',
+  };
+
+  function normalizeBackendChord(chord) {
+    if (!chord || ['N','N/A','X','NC','n','n/a'].includes(chord)) return null;
+    const colonMatch = chord.match(/^([A-G][b#]?):(.+)$/);
+    if (colonMatch) {
+      const root = FLAT_TO_SHARP[colonMatch[1]] ?? colonMatch[1];
+      const q    = QUALITY_MAP[colonMatch[2]] ?? colonMatch[2];
+      return root + q;
+    }
+    const flatRoot = chord.match(/^([A-G]b)/)?.[1];
+    if (flatRoot && FLAT_TO_SHARP[flatRoot]) {
+      return FLAT_TO_SHARP[flatRoot] + chord.slice(flatRoot.length);
+    }
+    return chord;
+  }
+
+  async function callBackendAPI(file) {
+    const ui = { chord: document.getElementById('scanChord'), fill: document.getElementById('progressFill'), pct: document.getElementById('progressText') };
+    ui.chord.textContent = '🤖 Sending to AI backend…';
+    ui.fill.style.width = '8%'; ui.pct.textContent = '8%';
+    const fd = new FormData();
+    fd.append('file', file);
+    fd.append('model', 'btc-sl');
+    fd.append('chord_dict', 'large_voca');
+    ui.chord.textContent = '🤖 BTC-SL AI analyzing chords…';
+    ui.fill.style.width = '25%'; ui.pct.textContent = '25%';
+    const res = await fetch('/api/recognize-chords-btc-sl', { method: 'POST', body: fd });
+    if (!res.ok) throw new Error(`API ${res.status}`);
+    const data = await res.json();
+    if (!data.success || !Array.isArray(data.chords)) throw new Error(data.error || 'Bad response');
+    ui.fill.style.width = '70%'; ui.pct.textContent = '70%';
+    ui.chord.textContent = `✅ Received ${data.chords.length} chord segments`;
+    return data.chords;
+  }
+
+  function buildTimelineFromAPI(chords) {
+    detectedChords = [];
+    detectedChordTimeline = [];
+    lastDisplayedStep = -1;
+    const spb = secondsPerBar();
+    for (const c of chords) {
+      const name = normalizeBackendChord(c.chord);
+      if (!name) continue;
+      const notes = getChordNotes(name) || [];
+      const conf  = c.confidence || 0.85;
+      const ss = Math.floor(c.start / DETECTION_STEP_SECONDS);
+      const se = Math.floor(c.end   / DETECTION_STEP_SECONDS);
+      for (let s = ss; s <= se; s++) detectedChordTimeline[s] = { step:s, chord:name, chordType:null, score:conf, notes };
+      const bs = Math.floor(c.start / spb);
+      const be = Math.floor(c.end   / spb);
+      for (let b = bs; b <= be; b++) {
+        if (!detectedChords[b] || conf > (detectedChords[b]?.score ?? 0))
+          detectedChords[b] = { chord:name, type:null, score:conf };
+      }
+    }
+  }
+
+  function finalizeScan(modeLabel) {
+    const key = detectKey(detectedChords.map(c => c ? c.chord : null));
+    document.getElementById('keyBadge').textContent = `Key: ${key}`;
+    const n = detectedChords.filter(c => c).length;
+    document.getElementById('scanChord').textContent = `${modeLabel === 'AI ✨' ? '✨ AI' : '📊 Local'}: ${n} chords — ${key}`;
+    document.getElementById('progressFill').style.width = '100%';
+    document.getElementById('progressText').textContent = 'Done!';
+    isAudioMode = true;
+    renderChordGrid();
+    document.getElementById('gridModeLabel').textContent = modeLabel;
+    for (let i = 0; i < detectedChordTimeline.length; i++) {
+      const e = detectedChordTimeline[i];
+      if (e && e.notes && e.notes.length) { showChordInPianoRoll(e.chord || 'Detected', e.notes); lastDisplayedStep = i; break; }
+    }
+    const ap = document.getElementById('audioPlayer');
+    const blob = new Blob([bufferToWave(audioBuffer, audioBuffer.length)], { type:'audio/wav' });
+    ap.src = URL.createObjectURL(blob);
+    setTimeout(() => document.getElementById('scanOverlay').classList.remove('active'), 1500);
+  }
+
+  // ==========================
+  // ANALYZE AUDIO (entrypoint)
+  // ==========================
+  async function analyzeAudio(file) {
+    audioFileName = file.name;
+    document.getElementById('fileInfo').innerHTML = `<span class="filename">${file.name}</span>`;
+    const arrayBuffer = await file.arrayBuffer();
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    try {
+      audioBuffer = await ctx.decodeAudioData(arrayBuffer);
+    } catch (e) {
+      document.getElementById('fileInfo').innerHTML = `<span style="color:var(--red)">Error decoding audio</span>`;
+      return;
+    }
+    const duration = formatTime(audioBuffer.duration);
+    document.getElementById('fileInfo').innerHTML = `<span class="filename">${file.name}</span> (${duration})`;
+    document.getElementById('timeDisplay').innerHTML = `<span class="current">00:00</span><span class="total"> / ${duration}</span>`;
+    document.getElementById('scanOverlay').classList.add('active');
+
+    try {
+      const apiChords = await callBackendAPI(file);
+      buildTimelineFromAPI(apiChords);
+      finalizeScan('AI ✨');
+    } catch (err) {
+      console.warn('⚠️ AI backend unavailable, using local FFT:', err);
+      document.getElementById('scanChord').textContent = '⚠️ AI offline — using local analysis…';
+      await new Promise(r => setTimeout(r, 500));
+      await scanAudioChords();
+      finalizeScan('Local FFT');
+    }
+  }
+
+  // ==========================
+  // AUDIO FILE HANDLING
+  // ==========================
+
+  async function scanAudioChords() {
+    if (!audioBuffer) return;
+    document.getElementById('scanOverlay').classList.add('active');
+    const sampleRate = audioBuffer.sampleRate;
+    const channelData = audioBuffer.getChannelData(0);
+    const chunkDuration = 0.5; // seconds (FFT window)
+    const chunkSize = Math.floor(sampleRate * chunkDuration);
+    const stepSize = Math.floor(sampleRate * DETECTION_STEP_SECONDS);
+    const totalSteps = Math.floor(channelData.length / stepSize);
+    const secondsPerBarEstimate = secondsPerBar();
+
+    detectedChords = [];
+    detectedChordTimeline = [];
+    lastDisplayedStep = -1;
+
+    for (let i = 0; i < totalSteps; i++) {
+      const start = i * stepSize;
+      const end = Math.min(start + chunkSize, channelData.length);
+      const chunk = channelData.slice(start, end);
+      const notes = detectNotesFromChunk(chunk, sampleRate);
+      const filteredNotes = notes.filter(n => ROW_NOTES.includes(n));
+      const uniqueNotes = [...new Set(filteredNotes)].sort((a, b) => ROW_NOTES.indexOf(a) - ROW_NOTES.indexOf(b));
+      const chord = matchChord(notes);
+
+      if (chord) {
+        document.getElementById('scanChord').textContent = `Detected: ${chord.chord}`;
+      } else if (notes.length > 0) {
+        document.getElementById('scanChord').textContent = `Notes: ${notes.slice(0, 4).join(', ')}`;
+      }
+
+      detectedChordTimeline[i] = (chord || uniqueNotes.length)
+        ? {
+            step: i,
+            chord: chord ? chord.chord : null,
+            chordType: chord ? chord.type : null,
+            score: chord ? chord.score : 0,
+            notes: uniqueNotes,
+          }
+        : null;
+
+      const progress = Math.round(((i + 1) / totalSteps) * 100);
+      document.getElementById('progressFill').style.width = progress + '%';
+      document.getElementById('progressText').textContent = progress + '%';
+
+      const elapsedSeconds = i * DETECTION_STEP_SECONDS;
+      const barIndex = Math.floor(elapsedSeconds / secondsPerBarEstimate);
+      if (chord) {
+        if (!detectedChords[barIndex] || chord.score > (detectedChords[barIndex]?.score ?? 0)) {
+          detectedChords[barIndex] = chord;
+        }
+      } else if (uniqueNotes.length && (!detectedChords[barIndex] || (detectedChords[barIndex] && detectedChords[barIndex].score < 0.6))) {
+        detectedChords[barIndex] = { chord: detectChord(uniqueNotes) || null, type: null, score: 0 };
+      } else if (detectedChords[barIndex] === undefined) {
+        detectedChords[barIndex] = null;
+      }
+
+      // Yield to UI thread
+      if (i % 5 === 0) await new Promise(r => setTimeout(r, 0));
+    }
+
+    // Fill in undefined bars with nulls
+    for (let i = 0; i < detectedChords.length; i++) {
+      if (detectedChords[i] === undefined) detectedChords[i] = null;
+    }
+  }
+
+  // Convert AudioBuffer to WAV for playback
+  function bufferToWave(abuffer, len) {
+    let numOfChan = abuffer.numberOfChannels, length = len * numOfChan * 2 + 44,
+        buffer = new ArrayBuffer(length), view = new DataView(buffer),
+        channels = [], i, sample, offset = 0, pos = 0;
+    setUint32(0x46464952); setUint32(length - 8); setUint32(0x45564157);
+    setUint32(0x20746d66); setUint32(16); setUint16(1); setUint16(numOfChan);
+    setUint32(abuffer.sampleRate); setUint32(abuffer.sampleRate * 2 * numOfChan);
+    setUint16(numOfChan * 2); setUint16(16); setUint32(0x61746164); setUint32(length - pos - 4);
+    for (i = 0; i < abuffer.numberOfChannels; i++) channels.push(abuffer.getChannelData(i));
+    while (pos < length) {
+      for (i = 0; i < numOfChan; i++) { sample = Math.max(-1, Math.min(1, channels[i][offset])); sample = sample < 0 ? sample * 0x8000 : sample * 0x7FFF; view.setInt16(pos, sample, true); pos += 2; }
+      offset++;
+    }
+    return buffer;
+    function setUint16(data) { view.setUint16(pos, data, true); pos += 2; }
+    function setUint32(data) { view.setUint32(pos, data, true); pos += 4; }
+  }
+
+  function formatTime(sec) {
+    const m = Math.floor(sec / 60);
+    const s = Math.floor(sec % 60);
+    return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+  }
+
+  // ==========================
+  // INIT
+  // ==========================
+  function init() {
+    renderKeys();
+    renderGridLines();
+    renderMeasureLabels();
+    renderNotes();
+    renderChordGrid();
+    updateDetection();
+    bindEvents();
+    // Start view at octave 4-5 area
+    const c5Row = ROW_NOTES.indexOf('C5');
+    if (c5Row >= 0) {
+      setTimeout(() => {
+        const gc = document.getElementById('gridColumn');
+        const target = Math.max(0, c5Row * ROW_HEIGHT - 150);
+        gc.scrollTop = target;
+        document.getElementById('keysWrapper').style.transform = `translateY(-${gc.scrollTop}px)`;
+      }, 50);
+    }
+  }
+
+  function renderKeys() {
+    const col = document.getElementById('keysWrapper');
+    col.innerHTML = '';
+    ROW_NOTES.forEach(noteName => {
+      const el = document.createElement('div');
+      el.className = 'key';
+      const base = noteName.replace(/\d/g, '');
+      el.classList.add(BLACK_KEYS.has(base) ? 'black' : 'white');
+      el.textContent = noteName;
+      col.appendChild(el);
+    });
+  }
+
+  function renderMeasureLabels() {
+    const wrap = document.getElementById('measureLabels');
+    wrap.innerHTML = '';
+    const totalW = TOTAL_BARS * BEATS_PER_BAR * BEAT_WIDTH;
+    wrap.style.width = Math.max(totalW, document.getElementById('gridColumn').clientWidth) + 'px';
+    for (let b = 0; b < TOTAL_BARS; b++) {
+      const label = document.createElement('div');
+      label.className = 'measure-label';
+      label.style.width = (BEATS_PER_BAR * BEAT_WIDTH) + 'px';
+      label.style.flexShrink = '0';
+      label.textContent = (b + 1).toString();
+      wrap.appendChild(label);
+    }
+  }
+
+  function renderGridLines() {
+    const lines = document.getElementById('gridLines');
+    lines.innerHTML = '';
+    const totalW = TOTAL_BARS * BEATS_PER_BAR * BEAT_WIDTH;
+    const canvas = document.getElementById('gridCanvas');
+    if (!canvas) return;
+    canvas.style.width = Math.max(totalW, 400) + 'px';
+    canvas.style.height = (ROW_NOTES.length * ROW_HEIGHT) + 'px';
+    const totalBeats = TOTAL_BARS * BEATS_PER_BAR;
+    for (let i = 0; i <= totalBeats; i++) {
+      const line = document.createElement('div');
+      line.className = i % BEATS_PER_BAR === 0 ? 'beat-line bar-line' : 'beat-line';
+      line.style.left = (i * BEAT_WIDTH) + 'px';
+      lines.appendChild(line);
+    }
+    ROW_NOTES.forEach((_, idx) => {
+      const line = document.createElement('div');
+      line.className = 'row-line';
+      line.style.top = ((idx + 1) * ROW_HEIGHT) + 'px';
+      lines.appendChild(line);
+    });
+  }
+
+  function renderNotes() {
+    document.querySelectorAll('.note-block').forEach(el => el.remove());
+    const canvas = document.getElementById('gridCanvas');
+    const rowIndex = name => ROW_NOTES.indexOf(name);
+    notes.forEach(note => {
+      const el = document.createElement('div');
+      el.className = 'note-block';
+      el.dataset.id = note.id;
+      const rIdx = rowIndex(note.note);
+      if (rIdx < 0) return;
+      el.style.top = (rIdx * ROW_HEIGHT + 2) + 'px';
+      el.style.left = (note.start * BEAT_WIDTH + 2) + 'px';
+      el.style.width = Math.max(8, note.duration * BEAT_WIDTH - 4) + 'px';
+      el.style.height = (ROW_HEIGHT - 4) + 'px';
+      el.textContent = note.note;
+      const handle = document.createElement('div');
+      handle.className = 'resize-handle';
+      el.appendChild(handle);
+      canvas.appendChild(el);
+    });
+  }
+
+  function renderChordGrid() {
+    const grid = document.getElementById('chordGrid');
+    if (!grid) return;
+    grid.innerHTML = '';
+    const progression = isAudioMode ? detectedChords : DEMO_PROGRESSION;
+    const totalCells = progression.length;
+    const rows = Math.ceil(totalCells / 8);
+
+    for (let row = 0; row < rows; row++) {
+      // Add row label for scanned mode
+      if (isAudioMode) {
+        const label = document.createElement('div');
+        label.className = 'bar-row-label';
+        const startBar = row * 8 + 1;
+        const endBar = Math.min((row + 1) * 8, totalCells);
+        label.textContent = `Bars ${startBar}-${endBar}`;
+        grid.appendChild(label);
+      }
+
+      for (let col = 0; col < 8; col++) {
+        const idx = row * 8 + col;
+        if (idx >= totalCells) break;
+
+        const chordData = progression[idx];
+        const chord = isAudioMode ? (chordData ? chordData.chord : '') : chordData;
+        const chordType = isAudioMode ? (chordData ? chordData.type : null) : null;
+
+        const cell = document.createElement('div');
+        cell.className = 'chord-cell';
+        cell.dataset.index = idx;
+        if (!chord) cell.classList.add('empty');
+        if (chordType && CHORD_TYPE_CLASS[chordType]) cell.classList.add(CHORD_TYPE_CLASS[chordType]);
+
+        if (chord) {
+          const name = document.createElement('div');
+          name.className = 'chord-name';
+          name.textContent = chord;
+          cell.appendChild(name);
+
+          const roman = ROMAN_MAP[chord];
+          if (roman) {
+            const r = document.createElement('div');
+            r.className = 'roman';
+            r.textContent = roman;
+            cell.appendChild(r);
+          }
+        }
+
+        cell.addEventListener('click', () => {
+          document.querySelectorAll('.chord-cell').forEach(c => c.classList.remove('active'));
+          if (chord) {
+            cell.classList.add('active');
+            playChordSound(chord);
+            // Sync to piano roll
+            showChordInPianoRoll(chord);
+          }
+        });
+
+        grid.appendChild(cell);
+      }
+    }
+  }
+
+  function showChordInPianoRoll(chordName, noteList = null) {
+    const sourceNotes = Array.isArray(noteList) && noteList.length ? noteList : getChordNotes(chordName);
+    if (!sourceNotes || !sourceNotes.length) return;
+    // Filter to ROW_NOTES range
+    const validNotes = [...new Set(sourceNotes.filter(n => ROW_NOTES.includes(n)))]
+      .sort((a, b) => ROW_NOTES.indexOf(a) - ROW_NOTES.indexOf(b));
+    if (!validNotes.length) return;
+
+    // Always place notes spanning the entire visible grid (beat 0, full width)
+    notes = [];
+    nextId = 1;
+    validNotes.forEach(noteName => {
+      notes.push({ note: noteName, start: 0, duration: TOTAL_BARS * BEATS_PER_BAR, id: nextId++ });
+    });
+    renderNotes();
+    updateDetection();
+
+    // Auto-scroll vertically to center on chord notes
+    const firstRow = ROW_NOTES.indexOf(validNotes[0]);
+    if (firstRow >= 0) {
+      const gc = document.getElementById('gridColumn');
+      const target = Math.max(0, firstRow * ROW_HEIGHT - 150);
+      gc.scrollTop = target;
+      document.getElementById('keysWrapper').style.transform = `translateY(-${gc.scrollTop}px)`;
+    }
+  }
+
+  function secondsPerBar() {
+    return (60 / bpm) * BEATS_PER_BAR;
+  }
+
+  function setBeatIndexLabel(idx) {
+    const el = document.getElementById('beatIndex');
+    if (el) el.textContent = idx >= 0 ? `Beat ${idx + 1}` : 'Beat —';
+  }
+
+  function updateActiveChordCell() {
+    if (!isAudioMode || !isPlaying) {
+      const statusEl = document.getElementById('liveStatus');
+      const statusLabelEl = document.getElementById('liveStatusLabel');
+      if (statusEl && statusLabelEl) {
+        statusEl.classList.remove('live');
+        statusEl.classList.add('ready');
+        statusLabelEl.textContent = 'Ready';
+      }
+      setBeatIndexLabel(-1);
+      return;
+    }
+    const audioPlayer = document.getElementById('audioPlayer');
+    const currentTime = audioPlayer.currentTime;
+    const currentBar = Math.floor(currentTime / secondsPerBar());
+
+    document.querySelectorAll('.chord-cell').forEach(c => c.classList.remove('playing'));
+    const cells = document.querySelectorAll('.chord-cell[data-index]');
+    cells.forEach(cell => {
+      const idx = parseInt(cell.dataset.index);
+      if (idx === currentBar) {
+        cell.classList.add('playing');
+        cell.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }
+    });
+
+    // Update piano roll notes when step changes
+    const currentStep = Math.floor(audioPlayer.currentTime / DETECTION_STEP_SECONDS);
+    if (currentStep !== lastDisplayedStep) {
+      lastDisplayedStep = currentStep;
+
+      // Find entry at or before current step with notes
+      let entry = detectedChordTimeline[currentStep];
+      for (let s = currentStep; s >= 0 && (!entry || !entry.notes || !entry.notes.length); s--) {
+        entry = detectedChordTimeline[s];
+        if (entry && entry.notes && entry.notes.length) break;
+      }
+
+      setBeatIndexLabel(currentStep);
+
+      if (entry && entry.notes && entry.notes.length) {
+        showChordInPianoRoll(entry.chord || 'Detected', entry.notes);
+        const statusEl = document.getElementById('liveStatus');
+        const statusLabelEl = document.getElementById('liveStatusLabel');
+        if (statusEl && statusLabelEl) {
+          statusEl.classList.remove('ready');
+          statusEl.classList.add('live');
+          statusLabelEl.textContent = 'Live';
+        }
+        renderMiniPiano(entry.notes);
+        renderNotePills(entry.notes);
+      } else {
+        // fallback: use bar chord if available
+        const barIndex = Math.floor(audioPlayer.currentTime / secondsPerBar());
+        if (barIndex !== lastDisplayedBar) {
+          lastDisplayedBar = barIndex;
+        }
+        let chordToShow = null;
+        for (let b = barIndex; b >= 0; b--) {
+          if (detectedChords[b] && detectedChords[b].chord) {
+            chordToShow = detectedChords[b].chord;
+            break;
+          }
+        }
+        if (chordToShow) {
+          showChordInPianoRoll(chordToShow);
+          const statusEl = document.getElementById('liveStatus');
+          const statusLabelEl = document.getElementById('liveStatusLabel');
+          if (statusEl && statusLabelEl) {
+            statusEl.classList.remove('ready');
+            statusEl.classList.add('live');
+            statusLabelEl.textContent = 'Live';
+          }
+          renderMiniPiano(notes.map(n => n.note));
+          renderNotePills(notes.map(n => n.note));
+        }
+      }
+    }
+  }
+
+  function updatePlayheadFromAudio(currentTime) {
+    const beatPos = currentTime * (bpm / 60);
+    const maxBeats = TOTAL_BARS * BEATS_PER_BAR;
+    const wrappedPos = beatPos % maxBeats;
+    playheadPos = wrappedPos;
+    const playheadEl = document.getElementById('playhead');
+    playheadEl.style.left = (wrappedPos * BEAT_WIDTH) + 'px';
+    // Auto-scroll grid to keep playhead visible
+    const gridColumn = document.getElementById('gridColumn');
+    const playheadPixel = wrappedPos * BEAT_WIDTH;
+    const scrollLeft = gridColumn.scrollLeft;
+    const viewWidth = gridColumn.clientWidth;
+    if (playheadPixel < scrollLeft + 60 || playheadPixel > scrollLeft + viewWidth - 60) {
+      gridColumn.scrollTo({ left: Math.max(0, playheadPixel - viewWidth / 3), behavior: 'smooth' });
+    }
+  }
+
+  // ==========================
+  // MINI PIANO VISUALIZER
+  // ==========================
+  const WHITE_SEMITONES = [0, 2, 4, 5, 7, 9, 11]; // C D E F G A B
+  const WHITE_NOTE_NAMES = ['C','D','E','F','G','A','B'];
+  const BLACK_KEY_DEFS = [
+    { semitone: 1,  afterWhite: 0 }, // C#
+    { semitone: 3,  afterWhite: 1 }, // D#
+    { semitone: 6,  afterWhite: 3 }, // F#
+    { semitone: 8,  afterWhite: 4 }, // G#
+    { semitone: 10, afterWhite: 5 }, // A#
+  ];
+
+  function renderMiniPiano(noteList) {
+    const el = document.getElementById('miniPiano');
+    if (!el) return;
+    if (!noteList || !noteList.length) { el.innerHTML = ''; return; }
+
+    const activeMidi = new Set(noteList.map(n => {
+      const name = n.replace(/\d+$/, '');
+      const octave = parseInt(n.match(/\d+$/)?.[0] || '4', 10);
+      const idx = NOTES.indexOf(name);
+      return idx < 0 ? -1 : (octave + 1) * 12 + idx;
+    }).filter(m => m >= 0));
+
+    if (!activeMidi.size) { el.innerHTML = ''; return; }
+
+    const midiArr = [...activeMidi];
+    const minM = Math.min(...midiArr), maxM = Math.max(...midiArr);
+    const startOct = Math.max(0, Math.floor(minM / 12) - 1);
+    const endOct   = Math.min(startOct + 3, Math.floor(maxM / 12) + 1);
+    const numOct   = endOct - startOct;
+
+    const WW = 30, WH = 82, BW = 19, BH = 52;
+    const octW = WW * 7;
+    const totalW = octW * numOct;
+
+    let s = '';
+    // white keys
+    for (let o = startOct; o < endOct; o++) {
+      const oi = o - startOct;
+      WHITE_SEMITONES.forEach((semi, wi) => {
+        const midi = o * 12 + semi;
+        const active = activeMidi.has(midi);
+        const x = oi * octW + wi * WW;
+        const fill   = active ? '#22d3ee' : '#dde6f5';
+        const stroke = active ? '#0891b2' : '#8fa3b8';
+        s += `<rect x="${x+1}" y="0" width="${WW-2}" height="${WH}" rx="4" fill="${fill}" stroke="${stroke}" stroke-width="1"/>`;
+        if (active) {
+          s += `<text x="${x+WW/2}" y="${WH-9}" text-anchor="middle" font-size="8.5" font-weight="800" fill="#0c4a6e" font-family="system-ui,sans-serif">${WHITE_NOTE_NAMES[wi]}${o}</text>`;
+        }
+      });
+    }
+    // black keys (on top)
+    for (let o = startOct; o < endOct; o++) {
+      const oi = o - startOct;
+      BLACK_KEY_DEFS.forEach(({ semitone, afterWhite }) => {
+        const midi = o * 12 + semitone;
+        const active = activeMidi.has(midi);
+        const x = oi * octW + afterWhite * WW + WW - BW / 2;
+        const fill   = active ? '#06b6d4' : '#1a2540';
+        const stroke = active ? '#0e7490' : '#3d506b';
+        s += `<rect x="${x}" y="0" width="${BW}" height="${BH}" rx="4" fill="${fill}" stroke="${stroke}" stroke-width="1"/>`;
+        if (active) {
+          const noteName = NOTES[semitone] + o;
+          s += `<text x="${x+BW/2}" y="${BH-6}" text-anchor="middle" font-size="7" font-weight="800" fill="#e0f7ff" font-family="system-ui,sans-serif">${noteName}</text>`;
+        }
+      });
+    }
+
+    el.innerHTML = `<svg viewBox="0 0 ${totalW} ${WH}" style="width:100%;max-width:${totalW}px;height:96px" aria-label="Chord keyboard">${s}</svg>`;
+  }
+
+  function renderNotePills(noteList) {
+    const el = document.getElementById('notePills');
+    if (!el) return;
+    if (!noteList || !noteList.length) { el.innerHTML = ''; return; }
+    el.innerHTML = noteList.map(n => `<span class="note-pill">${n}</span>`).join('');
+  }
+
+  // ==========================
+  // DETECTION
+  // ==========================
+  function noteToMidi(noteName) {
+    const name = noteName.replace(/\d/g, '');
+    const octave = parseInt(noteName.match(/\d/)?.[0] || '4');
+    const idx = NOTES.indexOf(name);
+    return (octave + 1) * 12 + idx;
+  }
+
+  function detectChord(noteList) {
+    if (noteList.length < 2) return null;
+    const pcs = [...new Set(noteList.map(n => noteToMidi(n) % 12))];
+    let best = null, bestScore = 0;
+    for (let root = 0; root < 12; root++) {
+      for (const tmpl of CHORD_TEMPLATES) {
+        const expected = tmpl.intervals.map(iv => (root + iv) % 12);
+        const hit = expected.filter(e => pcs.includes(e)).length;
+        const score = hit / Math.max(expected.length, pcs.length);
+        if (score > bestScore) { bestScore = score; best = tmpl.name; }
+      }
+    }
+    if (best && bestScore >= 0.6) return best;
+    if (noteList.length === 2) return 'Interval';
+    return 'Unknown';
+  }
+
+  function updateDetection() {
+    const rootEl      = document.getElementById('detectedRoot');
+    const typeEl      = document.getElementById('detectedType');
+    const notesTextEl = document.getElementById('detectedNotesText');
+    const statusEl    = document.getElementById('liveStatus');
+    const statusLabelEl = document.getElementById('liveStatusLabel');
+    const uniqueNotes = [...new Set(notes.map(n => n.note))];
+
+    if (notes.length >= 2) {
+      const type = detectChord(uniqueNotes) || '';
+      const root = notes[0].note.replace(/\d/g, '');
+      rootEl.textContent = root;
+      typeEl.textContent = type;
+      notesTextEl.textContent = uniqueNotes.join('  ·  ');
+      notesTextEl.classList.remove('empty');
+      if (statusEl && statusLabelEl) {
+        statusEl.classList.remove('ready'); statusEl.classList.add('live');
+        statusLabelEl.textContent = 'Live';
+      }
+      renderMiniPiano(uniqueNotes);
+      renderNotePills(uniqueNotes);
+    } else if (notes.length === 1) {
+      const solf = SOLFEGE[notes[0].note.replace(/\d/g, '')] || '';
+      rootEl.textContent = notes[0].note;
+      typeEl.textContent = solf ? `(${solf})` : '(single note)';
+      notesTextEl.textContent = '';
+      notesTextEl.classList.add('empty');
+      if (statusEl && statusLabelEl) {
+        statusEl.classList.remove('live'); statusEl.classList.add('ready');
+        statusLabelEl.textContent = 'Single';
+      }
+      renderMiniPiano([notes[0].note]);
+      renderNotePills([notes[0].note]);
+    } else {
+      rootEl.textContent = '—';
+      typeEl.textContent = '';
+      notesTextEl.textContent = '';
+      notesTextEl.classList.add('empty');
+      if (statusEl && statusLabelEl) {
+        statusEl.classList.remove('live'); statusEl.classList.add('ready');
+        statusLabelEl.textContent = 'Ready';
+      }
+      renderMiniPiano([]);
+      renderNotePills([]);
+    }
+  }
+
+  // ==========================
+  // AUDIO
+  // ==========================
+  function getAudioCtx() {
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    return audioCtx;
+  }
+
+  function playTone(freq, duration = 0.4, type = 'sine') {
+    const ctx = getAudioCtx();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = type;
+    osc.frequency.setValueAtTime(freq, ctx.currentTime);
+    gain.gain.setValueAtTime(0.2, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + duration);
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start(ctx.currentTime);
+    osc.stop(ctx.currentTime + duration);
+  }
+
+  function midiToFreq(midi) {
+    return 440 * Math.pow(2, (midi - 69) / 12);
+  }
+
+  function playNoteSound(noteName) {
+    const midi = noteToMidi(noteName);
+    playTone(midiToFreq(midi), 0.5, 'triangle');
+  }
+
+  function playChordSound(chordName) {
+    const chordNotes = getChordNotes(chordName);
+    chordNotes.forEach((n, i) => {
+      setTimeout(() => playNoteSound(n), i * 40);
+    });
+  }
+
+  // ==========================
+  // INTERACTIONS
+  // ==========================
+  function bindEvents() {
+    const canvas = document.getElementById('gridCanvas');
+    const quantizeSelect = document.getElementById('quantize');
+
+    // Upload & Analyze
+    document.getElementById('audioFile').addEventListener('change', function(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+      analyzeAudio(file);
+    });
+
+    // Create note on double-click
+    canvas.addEventListener('dblclick', e => {
+      if (e.target.classList.contains('note-block') || e.target.closest('.note-block')) return;
+      const rect = canvas.getBoundingClientRect();
+      const x = e.clientX - rect.left + document.getElementById('gridColumn').scrollLeft;
+      const y = e.clientY - rect.top + document.getElementById('gridColumn').scrollTop;
+      const rawBeat = x / BEAT_WIDTH;
+      const snapped = snapBeat(rawBeat);
+      const rowIdx = Math.floor(y / ROW_HEIGHT);
+      if (rowIdx < 0 || rowIdx >= ROW_NOTES.length) return;
+      const noteName = ROW_NOTES[rowIdx];
+      notes.push({ note: noteName, start: snapped, duration: 1, id: nextId++ });
+      renderNotes();
+      updateDetection();
+      playNoteSound(noteName);
+    });
+
+    // Drag / resize
+    canvas.addEventListener('mousedown', e => {
+      const block = e.target.closest('.note-block');
+      if (!block) return;
+      e.preventDefault();
+      const id = parseInt(block.dataset.id);
+      const note = notes.find(n => n.id === id);
+      if (!note) return;
+      if (e.target.classList.contains('resize-handle')) {
+        dragState = { noteId: id, type: 'resize', startX: e.clientX, startBeat: note.duration, note };
+      } else {
+        dragState = { noteId: id, type: 'move', startX: e.clientX, startBeat: note.start, note };
+        block.classList.add('dragging');
+      }
+    });
+
+    document.addEventListener('mousemove', e => {
+      if (!dragState) return;
+      const dx = e.clientX - dragState.startX;
+      const beatDelta = dx / BEAT_WIDTH;
+      if (dragState.type === 'move') {
+        dragState.note.start = Math.max(0, snapBeat(dragState.startBeat + beatDelta));
+        renderNotes();
+      } else if (dragState.type === 'resize') {
+        dragState.note.duration = Math.max(0.25, snapBeat(dragState.startBeat + beatDelta));
+        renderNotes();
+      }
+    });
+
+    document.addEventListener('mouseup', () => {
+      if (dragState && dragState.type === 'move') {
+        const el = document.querySelector(`.note-block[data-id="${dragState.noteId}"]`);
+        if (el) el.classList.remove('dragging');
+      }
+      dragState = null;
+    });
+
+    quantizeSelect.addEventListener('change', e => { quantize = parseInt(e.target.value); });
+
+    // Sync piano keys with grid vertical scroll via CSS transform
+    const gridColumn = document.getElementById('gridColumn');
+    gridColumn.addEventListener('scroll', () => {
+      document.getElementById('keysWrapper').style.transform = `translateY(-${gridColumn.scrollTop}px)`;
+    });
+
+    // Controls
+    document.getElementById('playBtn').addEventListener('click', togglePlay);
+    document.getElementById('stopBtn').addEventListener('click', stopPlayback);
+    document.getElementById('clearBtn').addEventListener('click', () => {
+      notes = [];
+      renderNotes();
+      updateDetection();
+    });
+
+    // Audio player time updates
+    const audioPlayer = document.getElementById('audioPlayer');
+    audioPlayer.addEventListener('timeupdate', () => {
+      if (isAudioMode && isPlaying) {
+        const current = formatTime(audioPlayer.currentTime);
+        const total = formatTime(audioPlayer.duration || 0);
+        document.getElementById('timeDisplay').innerHTML = `<span class="current">${current}</span><span class="total"> / ${total}</span>`;
+        updateActiveChordCell();
+        updatePlayheadFromAudio(audioPlayer.currentTime);
+      }
+    });
+    audioPlayer.addEventListener('ended', () => {
+      stopPlayback();
+    });
+  }
+
+  function snapBeat(beat) {
+    const step = BEATS_PER_BAR / quantize;
+    return Math.round(beat / step) * step;
+  }
+
+  // ==========================
+  // PLAYBACK
+  // ==========================
+  function togglePlay() {
+    const audioPlayer = document.getElementById('audioPlayer');
+    if (isAudioMode && audioPlayer.src) {
+      if (isPlaying) {
+        audioPlayer.pause();
+        isPlaying = false;
+        clearInterval(chordUpdateInterval);
+        document.getElementById('playLabel').textContent = 'Play';
+        document.getElementById('playBtn').innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg><span id="playLabel">Play</span>';
+      } else {
+        audioPlayer.play();
+        isPlaying = true;
+        document.getElementById('playLabel').textContent = 'Pause';
+        document.getElementById('playBtn').innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg><span id="playLabel">Pause</span>';
+        document.getElementById('playhead').style.display = 'block';
+        chordUpdateInterval = setInterval(() => {
+          updateActiveChordCell();
+        }, 200);
+      }
+      return;
+    }
+
+    // Piano roll mode
+    if (isPlaying) {
+      stopPlayback();
+      return;
+    }
+    isPlaying = true;
+    document.getElementById('playLabel').textContent = 'Pause';
+    document.getElementById('playBtn').innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg><span id="playLabel">Pause</span>';
+    document.getElementById('playhead').style.display = 'block';
+
+    playInterval = setInterval(() => {
+      playheadPos += 0.05;
+      const maxBeats = TOTAL_BARS * BEATS_PER_BAR;
+      if (playheadPos >= maxBeats) playheadPos = 0;
+      document.getElementById('playhead').style.left = (playheadPos * BEAT_WIDTH) + 'px';
+      notes.forEach(note => {
+        if (Math.abs(playheadPos - note.start) < 0.025) playNoteSound(note.note);
+      });
+    }, 50);
+  }
+
+  function stopPlayback() {
+    isPlaying = false;
+    clearInterval(playInterval);
+    playInterval = null;
+    clearInterval(chordUpdateInterval);
+    playheadPos = 0;
+    document.getElementById('playhead').style.left = '0px';
+    document.getElementById('playhead').style.display = 'none';
+    document.getElementById('playLabel').textContent = 'Play';
+    document.getElementById('playBtn').innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg><span id="playLabel">Play</span>';
+
+    const audioPlayer = document.getElementById('audioPlayer');
+    audioPlayer.pause();
+    audioPlayer.currentTime = 0;
+    lastDisplayedBar = -1;
+    document.querySelectorAll('.chord-cell').forEach(c => c.classList.remove('playing'));
+  }
+
+  // ==========================
+  // START
+  // ==========================
+  init();
+  </script>
+</body>
+</html>

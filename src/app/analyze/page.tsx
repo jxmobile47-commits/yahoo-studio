@@ -82,6 +82,8 @@ import { useSheetSageBackendAvailability } from '@/hooks/sheetsage/useSheetSageB
 import { getSafeBeatModel, getSafeChordModel } from '@/utils/modelFiltering';
 import { MAX_ANALYSIS_DURATION_MINUTES, getAnalysisDurationLimitReason } from '@/utils/analysisDurationLimit';
 import MelodyTranscriptionStatusToast from '@/components/analysis/MelodyTranscriptionStatusToast';
+import LiveChordHUD from '@/components/analysis/LiveChordHUD';
+import { parseChordToMidiNotes } from '@/utils/chordToMidi';
 
 export default function LocalAudioAnalyzePage() {
   const showSheetSage = true;
@@ -912,6 +914,30 @@ const simplifiedChordGridData = useMemo(() => {
   return { ...chordGridData, chords: processedChords } as typeof chordGridData;
 }, [chordGridData, simplifyChords]);
 
+  const liveChordSymbol = useMemo(() => {
+    const chords = simplifiedChordGridData?.chords;
+    if (!Array.isArray(chords) || chords.length === 0) return null;
+    if (currentBeatIndex < 0 || currentBeatIndex >= chords.length) return null;
+    const chord = chords[currentBeatIndex];
+    if (!chord || chord.trim() === '') return null;
+    return chord;
+  }, [simplifiedChordGridData?.chords, currentBeatIndex]);
+
+  const liveChordNotes = useMemo(() => {
+    if (!liveChordSymbol) return [];
+    return parseChordToMidiNotes(liveChordSymbol).map((note) => note.name);
+  }, [liveChordSymbol]);
+
+  const liveChordStatus = useMemo(() => {
+    if (isPlaying && liveChordSymbol) {
+      return { label: 'Live', variant: 'live' as const };
+    }
+    if (liveChordSymbol) {
+      return { label: 'Ready', variant: 'ready' as const };
+    }
+    return { label: 'Idle', variant: 'ready' as const };
+  }, [isPlaying, liveChordSymbol]);
+
   // Beat animation tracking for HTML audio elements
   useEffect(() => {
     if (!analysisResults || !chordGridData || chordGridData.chords.length === 0) {
@@ -1262,6 +1288,19 @@ const simplifiedChordGridData = useMemo(() => {
 
                   {/* Tab content */}
                   <div className="tab-content">
+                    {/* Live Chord Tab */}
+                    {activeTab === 'liveChord' && (
+                      <div className="flex items-center justify-center" style={{minHeight: '55vh'}}>
+                        <div className="w-full max-w-2xl">
+                          <LiveChordHUD
+                            chord={liveChordSymbol ?? undefined}
+                            notes={liveChordNotes}
+                            beatIndex={currentBeatIndex >= 0 ? currentBeatIndex : undefined}
+                            status={liveChordStatus}
+                          />
+                        </div>
+                      </div>
+                    )}
                     {/* Beat & Chord Map Tab */}
                     {activeTab === 'beatChordMap' && (
                       <ScrollableTabContainer variant="plain" heightClass="h-[60vh] md:h-[66vh]">

@@ -2,7 +2,6 @@ const DEFAULT_PYTHON_API_URL = 'http://localhost:5001';
 const DEFAULT_FRONTEND_URL = 'http://localhost:3000';
 const DEFAULT_LOCAL_SONGFORMER_API_URL = 'http://localhost:8080';
 const DEFAULT_LOCAL_SHEETSAGE_API_URL = 'http://localhost:8082';
-const DEFAULT_STEMDECK_API_URL = 'http://localhost:8000';
 
 function isProductionLikeEnvironment(): boolean {
   return process.env.NODE_ENV === 'production';
@@ -83,10 +82,6 @@ export function getYtMp3GoHostname(): string | null {
   } catch {
     return null;
   }
-}
-
-export function getStemdeckApiUrl(): string {
-  return process.env.STEMDECK_API_URL || DEFAULT_STEMDECK_API_URL;
 }
 
 export function isLocalPythonApi(): boolean {
